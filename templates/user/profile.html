@@ -46,8 +46,8 @@
             <div class="col-6 col-lg-4">
                 <a href="{{ url_for('places.detail', id=p.id) }}" class="text-decoration-none text-dark">
                 <div class="card border-0 shadow-sm" style="border-radius:10px;overflow:hidden;">
-                    {% if p.image_url %}
-                    <img src="{{ p.image_url|proxy_url }}" style="height:80px;object-fit:cover;width:100%;" onerror="this.style.display='none'">
+                    {% if p.primary_image %}
+                    <img src="{{ p.primary_image|proxy_url }}" style="height:80px;object-fit:cover;width:100%;" onerror="this.style.display='none'">
                     {% endif %}
                     <div class="p-2">
                         <div class="fw-semibold" style="font-size:0.82rem;">{{ p.name }}</div>

@@ -37,11 +37,6 @@ class Config:
     GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
     GOOGLE_REDIRECT_URI  = os.getenv('GOOGLE_REDIRECT_URI', 'http://127.0.0.1:5000/auth/google/callback')
 
-    # LINE OAuth
-    LINE_CHANNEL_ID      = os.getenv('LINE_CHANNEL_ID')
-    LINE_CHANNEL_SECRET  = os.getenv('LINE_CHANNEL_SECRET')
-    LINE_REDIRECT_URI    = os.getenv('LINE_REDIRECT_URI', 'http://127.0.0.1:5000/auth/line/callback')
-
     # Facebook OAuth
     FB_APP_ID            = os.getenv('FB_APP_ID')
     FB_APP_SECRET        = os.getenv('FB_APP_SECRET')

@@ -261,23 +261,6 @@
 
     <!-- Sidebar: แผนที่ + นำทาง -->
     <div class="col-lg-4">
-<script>
-function switchSlide(idx) {
-    const carousel = document.getElementById('gallery');
-    bootstrap.Carousel.getOrCreateInstance(carousel).to(idx);
-    // อัปเดต border thumbnail
-    document.querySelectorAll('.thumb-img').forEach((t, i) => {
-        t.style.border = i === idx ? '2px solid #0d6efd' : '2px solid transparent';
-    });
-}
-// sync thumbnail เมื่อ slide เปลี่ยน
-document.getElementById('gallery')?.addEventListener('slid.bs.carousel', e => {
-    document.querySelectorAll('.thumb-img').forEach((t, i) => {
-        t.style.border = i === e.to ? '2px solid #0d6efd' : '2px solid transparent';
-    });
-});
-</script>
-
 {% if place.latitude and place.longitude %}
         <div class="card shadow-sm border-0 mb-3">
             <div class="card-body p-3">

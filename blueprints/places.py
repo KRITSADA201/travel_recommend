@@ -133,14 +133,15 @@ def add():
 
     categories = Category.query.all()
     if request.method == 'POST':
-        lat = request.form.get('latitude',  '').strip()
-        lng = request.form.get('longitude', '').strip()
+        lat    = request.form.get('latitude',  '').strip()
+        lng    = request.form.get('longitude', '').strip()
+        cat_id = request.form.get('category_id', '').strip()
 
         place = Place(
             name        = request.form['name'],
             detail      = request.form['detail'],
             location    = request.form['location'],
-            category_id = request.form['category_id'],
+            category_id = int(cat_id) if cat_id else None,
             user_id     = current_user.id,
             latitude    = float(lat) if lat else None,
             longitude   = float(lng) if lng else None,
@@ -171,13 +172,14 @@ def edit(id):
     categories = Category.query.all()
 
     if request.method == 'POST':
-        lat = request.form.get('latitude',  '').strip()
-        lng = request.form.get('longitude', '').strip()
+        lat    = request.form.get('latitude',  '').strip()
+        lng    = request.form.get('longitude', '').strip()
+        cat_id = request.form.get('category_id', '').strip()
 
         place.name        = request.form['name']
         place.detail      = request.form['detail']
         place.location    = request.form['location']
-        place.category_id = request.form['category_id']
+        place.category_id = int(cat_id) if cat_id else None
         place.latitude    = float(lat) if lat else None
         place.longitude   = float(lng) if lng else None
 

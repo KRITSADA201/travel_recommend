@@ -196,33 +196,6 @@ def google_callback():
     return redirect(url_for('places.home'))
 
 
-# ── LINE ──
-@auth.route('/line')
-def line_login():
-    state = secrets.token_urlsafe(16)
-    session['oauth_state'] = state
-    cfg = current_app.config
-    params = dict(response_type='code', client_id=cfg['LINE_CHANNEL_ID'],
-                  redirect_uri=cfg['LINE_REDIRECT_URI'], state=state, scope='profile openid email')
-    return redirect('https://access.line.me/oauth2/v2.1/authorize?' + urlencode(params))
-
-@auth.route('/line/callback')
-def line_callback():
-    cfg  = current_app.config
-    code = request.args.get('code')
-    if not code: return redirect(url_for('auth.login'))
-    tok  = http.post('https://api.line.me/oauth2/v2.1/token', data=dict(
-        grant_type='authorization_code', code=code,
-        redirect_uri=cfg['LINE_REDIRECT_URI'],
-        client_id=cfg['LINE_CHANNEL_ID'], client_secret=cfg['LINE_CHANNEL_SECRET'])).json()
-    token = tok.get('access_token')
-    if not token: return redirect(url_for('auth.login'))
-    profile = http.get('https://api.line.me/v2/profile',
-                       headers={'Authorization': f'Bearer {token}'}).json()
-    login_user(_get_or_create_user(profile.get('displayName', 'LINE_User')))
-    return redirect(url_for('places.home'))
-
-
 # ── Facebook ──
 @auth.route('/facebook')
 def facebook_login():

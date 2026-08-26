@@ -8,17 +8,17 @@
 {% for p in places %}
 <div class="col-12 col-md-6 col-lg-4">
     <div class="card h-100 shadow-sm border-0" style="border-radius:12px;overflow:hidden;">
-        {% if p.image_url %}
+        {% if p.primary_image %}
             <div style="height:160px;overflow:hidden;">
-                <img src="{{ p.image_url|proxy_url }}" style="width:100%;height:100%;object-fit:cover;"
+                <img src="{{ p.primary_image|proxy_url }}" style="width:100%;height:100%;object-fit:cover;"
                      onerror="this.parentNode.style.display='none'">
             </div>
         {% endif %}
         <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-start mb-1">
                 <h6 class="mb-0 fw-semibold" style="font-size:0.95rem;">{{ p.name }}</h6>
-                {% if avg_ratings[p.id] %}
-                    <span class="badge bg-warning text-dark ms-2"><i class="bi bi-star-fill"></i> {{ avg_ratings[p.id] }}</span>
+                {% if avg_ratings.get(p.id) %}
+                    <span class="badge bg-warning text-dark ms-2"><i class="bi bi-star-fill"></i> {{ avg_ratings.get(p.id) }}</span>
                 {% endif %}
             </div>
             <p class="text-muted mb-2" style="font-size:0.8rem;"><i class="bi bi-geo-alt me-1"></i>{{ p.location }}</p>
