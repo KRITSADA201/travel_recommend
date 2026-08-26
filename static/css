@@ -1,0 +1,40 @@
+/* .place-card {
+    border-radius: 15px;
+    overflow: hidden;
+    transition: 0.3s;
+}
+
+.place-card img {
+    height: 220px;
+    object-fit: cover;
+}
+
+.place-card:hover {
+    transform: scale(1.03);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+} */
+
+body {
+    background: #f5f7fa;
+    font-family: 'Prompt', sans-serif;
+}
+
+nav {
+    background: #212529;
+    padding: 10px;
+}
+
+nav a {
+    color: white;
+    margin-right: 10px;
+    text-decoration: none;
+}
+
+.card {
+    border-radius: 15px;
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: scale(1.05);
+}

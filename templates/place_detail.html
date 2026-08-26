@@ -1,0 +1,216 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="card shadow mb-4">
+    {% if place.image_url %}
+        <img src="{{ place.image_url }}" class="card-img-top" style="max-height:300px;object-fit:cover;width:100%;" onerror="this.parentNode.removeChild(this)">
+    {% endif %}
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h3>{{ place.name }}</h3>
+                <p class="text-muted"><i class="bi bi-geo-alt me-1"></i>{{ place.location }}</p>
+            </div>
+            <div class="text-end">
+                {% if avg_rating %}
+                    <span class="badge bg-warning text-dark fs-5"><i class="bi bi-star-fill me-1"></i>{{ avg_rating }} / 5</span><br>
+                    <small class="text-muted">{{ reviews|length }} รีวิว</small>
+                {% else %}
+                    <span class="badge bg-secondary">ยังไม่มีรีวิว</span>
+                {% endif %}
+            </div>
+        </div>
+        <p>{{ place.detail }}</p>
+
+        {% if place.latitude and place.longitude %}
+  
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0"><i class="bi bi-pin-map me-1"></i>ตำแหน่งสถานที่</h6>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success btn-sm" onclick="startNavigation()">
+                        <i class="bi bi-compass me-1"></i>นำทางไปที่นี่
+                    </button>
+                    <a href="https://www.google.com/maps/dir/?api=1&destination={{ place.latitude }},{{ place.longitude }}"
+                       target="_blank" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-google me-1"></i>Google Maps
+                    </a>
+                </div>
+            </div>
+            <div id="detail-map" style="height:300px;border-radius:10px;z-index:0;" class="shadow-sm"></div>
+            
+            <div id="nav-panel" class="d-none mt-2">
+                <div class="alert alert-success py-2 mb-2">
+                    <i class="bi bi-compass me-1"></i>กำลังนำทางไปยัง <strong>{{ place.name }}</strong>
+                    <button class="btn btn-sm btn-outline-danger float-end" onclick="stopNavigation()">หยุดนำทาง</button>
+                </div>
+                <div id="nav-instruction" class="alert alert-info py-2 small"></div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="d-flex gap-2 flex-wrap">
+            {% if current_user.is_authenticated %}
+                {% if is_favorite %}
+                    <a href="/favorite/{{ place.id }}" class="btn btn-warning btn-sm"><i class="bi bi-heart-fill me-1"></i>เอาออกจากโปรด</a>
+                {% else %}
+                    <a href="/favorite/{{ place.id }}" class="btn btn-outline-warning btn-sm"><i class="bi bi-heart me-1"></i>บันทึกโปรด</a>
+                {% endif %}
+            {% endif %}
+            {% if current_user.is_authenticated and current_user.is_admin %}
+                <a href="{{ url_for('delete_place', id=place.id) }}" onclick="return confirm('ยืนยันการลบ?')" class="btn btn-danger btn-sm"><i class="bi bi-trash me-1"></i>ลบสถานที่</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
+<h4><i class="bi bi-chat-left-text me-2"></i>รีวิวทั้งหมด</h4>
+
+{% if current_user.is_authenticated and not user_reviewed %}
+<div class="card p-3 mb-4 shadow-sm">
+    <h6><i class="bi bi-pencil-square me-1"></i>เขียนรีวิวของคุณ</h6>
+    <form method="POST">
+        <div class="mb-2">
+            <label>คะแนน</label>
+            <select name="rating" class="form-select form-select-sm" required>
+                <option value="5">5 ดาว — ดีมาก</option>
+                <option value="4">4 ดาว — ดี</option>
+                <option value="3">3 ดาว — ปานกลาง</option>
+                <option value="2">2 ดาว — พอได้</option>
+                <option value="1">1 ดาว — ไม่ดี</option>
+            </select>
+        </div>
+        <div class="mb-2">
+            <label>ความคิดเห็น</label>
+            <textarea name="comment" class="form-control form-control-sm" rows="3" required></textarea>
+        </div>
+        <button class="btn btn-primary btn-sm"><i class="bi bi-send me-1"></i>ส่งรีวิว</button>
+    </form>
+</div>
+{% elif not current_user.is_authenticated %}
+<div class="alert alert-info"><i class="bi bi-info-circle me-1"></i><a href="/login">เข้าสู่ระบบ</a> เพื่อเขียนรีวิว</div>
+{% elif user_reviewed %}
+<div class="alert alert-secondary"><i class="bi bi-check-circle me-1"></i>คุณรีวิวสถานที่นี้แล้ว</div>
+{% endif %}
+
+{% for r in reviews %}
+<div class="card mb-2 shadow-sm">
+    <div class="card-body py-2">
+        <div class="d-flex justify-content-between">
+            <strong><i class="bi bi-person-circle me-1"></i>{{ r.user.username }}</strong>
+            <span>
+                {% for i in range(r.rating) %}<i class="bi bi-star-fill text-warning"></i>{% endfor %}
+                {% for i in range(5 - r.rating) %}<i class="bi bi-star text-secondary"></i>{% endfor %}
+                {% if current_user.is_authenticated and (r.user_id == current_user.id or current_user.is_admin) %}
+                    <a href="/review/delete/{{ r.id }}" onclick="return confirm('ลบรีวิวนี้?')" class="btn btn-outline-danger btn-sm ms-2"><i class="bi bi-trash"></i></a>
+                {% endif %}
+            </span>
+        </div>
+        <p class="mb-0 mt-1">{{ r.comment }}</p>
+    </div>
+</div>
+{% else %}
+<p class="text-muted"><i class="bi bi-chat-dots me-1"></i>ยังไม่มีรีวิว เป็นคนแรกที่รีวิวสถานที่นี้!</p>
+{% endfor %}
+
+{% if place.latitude and place.longitude %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
+
+<script>
+let dmapExpanded = false;
+function toggleDetailMap() {
+    const el = document.getElementById('detail-map');
+    const icon = document.getElementById('dmap-icon');
+    const text = document.getElementById('dmap-text');
+    dmapExpanded = !dmapExpanded;
+    el.style.height = dmapExpanded ? '350px' : '200px';
+    icon.className = dmapExpanded ? 'bi bi-arrows-collapse' : 'bi bi-arrows-expand';
+    text.textContent = dmapExpanded ? 'ย่อ' : 'ขยาย';
+    setTimeout(() => map.invalidateSize(), 350);
+}
+
+const destLat = {{ place.latitude }};
+const destLng = {{ place.longitude }};
+const placeName = "{{ place.name }}";
+
+const map = L.map('detail-map').setView([destLat, destLng], 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+const destIcon = L.divIcon({
+    html: '<i class="bi bi-geo-alt-fill" style="font-size:2rem;color:#dc3545;"></i>',
+    className: '', iconAnchor: [12, 32], popupAnchor: [0, -32]
+});
+const userIcon = L.divIcon({
+    html: '<i class="bi bi-person-fill" style="font-size:1.8rem;color:#0d6efd;"></i>',
+    className: '', iconAnchor: [12, 24], popupAnchor: [0, -24]
+});
+
+L.marker([destLat, destLng], {icon: destIcon})
+    .addTo(map)
+    .bindPopup(`<strong>${placeName}</strong>`)
+    .openPopup();
+
+let userMarker = null;
+let routingControl = null;
+let watchId = null;
+
+function startNavigation() {
+    if (!navigator.geolocation) { alert('เบราว์เซอร์ไม่รองรับ GPS'); return; }
+
+    document.getElementById('nav-panel').classList.remove('d-none');
+    document.getElementById('nav-instruction').innerHTML = '<i class="bi bi-hourglass me-1"></i>กำลังดึงตำแหน่งของคุณ...';
+
+    watchId = navigator.geolocation.watchPosition(pos => {
+        const uLat = pos.coords.latitude;
+        const uLng = pos.coords.longitude;
+
+        // อัปเดต marker ผู้ใช้
+        if (userMarker) map.removeLayer(userMarker);
+        userMarker = L.marker([uLat, uLng], {icon: userIcon}).addTo(map)
+            .bindPopup('ตำแหน่งของคุณ');
+
+        // คำนวณระยะทาง
+        const dist = map.distance([uLat, uLng], [destLat, destLng]);
+        const distText = dist < 1000 ? `${Math.round(dist)} ม.` : `${(dist/1000).toFixed(1)} กม.`;
+
+        document.getElementById('nav-instruction').innerHTML =
+            `<i class="bi bi-geo-alt me-1"></i>ระยะทางถึง <strong>${placeName}</strong>: <strong>${distText}</strong>`;
+
+        // สร้าง route
+        if (routingControl) map.removeControl(routingControl);
+        routingControl = L.Routing.control({
+            waypoints: [L.latLng(uLat, uLng), L.latLng(destLat, destLng)],
+            routeWhileDragging: false,
+            addWaypoints: false,
+            draggableWaypoints: false,
+            fitSelectedRoutes: true,
+            show: false,
+            lineOptions: { styles: [{color: '#0d6efd', weight: 5, opacity: 0.8}] },
+            createMarker: () => null,
+        }).addTo(map);
+
+        map.fitBounds([[uLat, uLng], [destLat, destLng]], {padding: [60, 60]});
+
+    }, err => {
+        document.getElementById('nav-instruction').innerHTML =
+            '<i class="bi bi-exclamation-triangle me-1"></i>ไม่สามารถดึงตำแหน่งได้ กรุณาอนุญาต GPS';
+    }, {enableHighAccuracy: true, maximumAge: 5000});
+}
+
+function stopNavigation() {
+    if (watchId) navigator.geolocation.clearWatch(watchId);
+    if (routingControl) map.removeControl(routingControl);
+    if (userMarker) map.removeLayer(userMarker);
+    document.getElementById('nav-panel').classList.add('d-none');
+    map.setView([destLat, destLng], 15);
+}
+</script>
+{% endif %}
+
+{% endblock %}

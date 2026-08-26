@@ -1,0 +1,9 @@
+flask
+flask-sqlalchemy
+flask-login
+flask-bcrypt
+python-dotenv
+requests
+itsdangerous
+gunicorn
+psycopg2-binary

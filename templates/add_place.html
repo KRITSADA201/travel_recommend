@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="card shadow p-4">
+    <h3 class="mb-3"><i class="bi bi-plus-circle me-2"></i>เพิ่มสถานที่</h3>
+
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label"><i class="bi bi-card-text me-1"></i>ชื่อสถานที่</label>
+            <input type="text" name="name" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label"><i class="bi bi-text-paragraph me-1"></i>รายละเอียด</label>
+            <textarea name="detail" class="form-control" required></textarea>
+        </div>
+        <div class="mb-3">
+            <label class="form-label"><i class="bi bi-geo-alt me-1"></i>ที่ตั้ง</label>
+            <input type="text" name="location" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label"><i class="bi bi-image me-1"></i>รูปภาพ (URL)</label>
+            <input type="text" name="image_url" class="form-control">
+        </div>
+        <div class="mb-3">
+            <label class="form-label"><i class="bi bi-folder me-1"></i>หมวดหมู่</label>
+            <select name="category_id" class="form-select">
+                {% for c in categories %}
+                    <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <hr>
+        <h6><i class="bi bi-pin-map me-1"></i>พิกัดแผนที่ <span class="text-muted small">(ไม่บังคับ)</span></h6>
+
+       
+        <div class="row g-2 mb-2">
+            <div class="col">
+                <label class="form-label small fw-bold">Latitude <span class="text-muted">(ละติจูด)</span></label>
+                <input type="text" name="latitude" id="lat-input" class="form-control"
+                       placeholder="เช่น 15.244800" oninput="updateMapFromInput()">
+            </div>
+            <div class="col">
+                <label class="form-label small fw-bold">Longitude <span class="text-muted">(ลองจิจูด)</span></label>
+                <input type="text" name="longitude" id="lng-input" class="form-control"
+                       placeholder="เช่น 104.847300" oninput="updateMapFromInput()">
+            </div>
+        </div>
+        <p class="text-muted small mb-2">
+            <i class="bi bi-info-circle me-1"></i>หาพิกัดได้จาก
+            <a href="https://www.google.com/maps" target="_blank">Google Maps</a>
+            → คลิกขวาที่จุด → คัดลอกพิกัด
+        </p>
+
+        
+        <div class="input-group mb-2">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" id="search-input" class="form-control" placeholder="หรือค้นหาจากชื่อสถานที่บนแผนที่...">
+            <button type="button" class="btn btn-outline-primary" onclick="searchLocation()">ค้นหา</button>
+            <button type="button" class="btn btn-outline-success" onclick="getMyLocation()" title="ใช้ตำแหน่งปัจจุบัน">
+                <i class="bi bi-crosshair"></i>
+            </button>
+        </div>
+
+       
+        <div id="add-map" style="height:350px;border-radius:10px;z-index:0;" class="shadow-sm mb-3"></div>
+        <p class="text-muted small"><i class="bi bi-hand-index me-1"></i>กดบนแผนที่เพื่อปักหมุดตำแหน่ง</p>
+
+        <button class="btn btn-success w-100 mt-2"><i class="bi bi-check-circle me-1"></i>บันทึก</button>
+    </form>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map = L.map('add-map').setView([15.2448, 104.8473], 9);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+let marker = null;
+
+map.on('click', function(e) {
+    setMarker(e.latlng.lat, e.latlng.lng);
+});
+
+function setMarker(lat, lng) {
+    if (marker) map.removeLayer(marker);
+    marker = L.marker([lat, lng], {draggable: true}).addTo(map);
+    marker.on('dragend', function(e) {
+        const pos = e.target.getLatLng();
+        setInputs(pos.lat, pos.lng);
+    });
+    setInputs(lat, lng);
+}
+
+function setInputs(lat, lng) {
+    document.getElementById('lat-input').value = lat.toFixed(6);
+    document.getElementById('lng-input').value = lng.toFixed(6);
+}
+
+function updateMapFromInput() {
+    const lat = parseFloat(document.getElementById('lat-input').value);
+    const lng = parseFloat(document.getElementById('lng-input').value);
+    if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        map.setView([lat, lng], 14);
+        if (marker) map.removeLayer(marker);
+        marker = L.marker([lat, lng], {draggable: true}).addTo(map);
+        marker.on('dragend', function(e) {
+            const pos = e.target.getLatLng();
+            setInputs(pos.lat, pos.lng);
+        });
+    }
+}
+
+function searchLocation() {
+    const q = document.getElementById('search-input').value.trim();
+    if (!q) return;
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lng = parseFloat(data[0].lon);
+                map.setView([lat, lng], 15);
+                setMarker(lat, lng);
+            } else {
+                alert('ไม่พบตำแหน่งที่ค้นหา ลองค้นเป็นภาษาอังกฤษ');
+            }
+        });
+}
+
+function getMyLocation() {
+    if (!navigator.geolocation) { alert('เบราว์เซอร์ไม่รองรับ'); return; }
+    navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        map.setView([lat, lng], 15);
+        setMarker(lat, lng);
+    }, () => alert('ไม่สามารถดึงตำแหน่งได้'));
+}
+
+document.getElementById('search-input').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); searchLocation(); }
+});
+</script>
+
+{% endblock %}
