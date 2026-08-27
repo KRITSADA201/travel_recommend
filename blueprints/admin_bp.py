@@ -43,3 +43,27 @@ def delete_category(id):
     db.session.delete(cat)
     db.session.commit()
     return redirect(url_for('admin.dashboard'))
+
+
+@admin_bp.route('/user/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_user(id):
+    _admin_required()
+    if current_user.id == id:
+        return redirect(url_for('admin.dashboard'))
+
+    user = User.query.get_or_404(id)
+    from models import ReviewReply, Favorite
+
+    # เคลียร์ข้อมูลที่เกี่ยวข้องของ User
+    ReviewReply.query.filter_by(user_id=id).delete()
+    Favorite.query.filter_by(user_id=id).delete()
+    Review.query.filter_by(user_id=id).delete()
+
+    # ถ้าผู้ใช้เคยสร้างสถานที่ไว้ ให้โอนสิทธิ์ความเป็นเจ้าของให้ Admin ผู้ลบ
+    for p in Place.query.filter_by(user_id=id).all():
+        p.user_id = current_user.id
+
+    db.session.delete(user)
+    db.session.commit()
+    return redirect(url_for('admin.dashboard'))
