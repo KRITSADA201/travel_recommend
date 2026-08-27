@@ -889,33 +889,48 @@
         </script>
     </div>
 
-    <!-- Sidebar: แผนที่ + นำทาง -->
+    <!-- Sidebar: แผนที่ Google Maps + นำทาง -->
     <div class="col-lg-4">
-{% if place.latitude and place.longitude %}
+        {% if place.latitude and place.longitude %}
         <div class="card shadow-sm border-0 mb-3">
             <div class="card-body p-3">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h6 class="mb-0 fw-semibold"><i class="bi bi-pin-map me-1"></i>ตำแหน่ง</h6>
+                    <h6 class="mb-0 fw-semibold text-primary">
+                        <i class="bi bi-geo-alt-fill text-danger me-1"></i>Google Maps
+                    </h6>
                     <div class="d-flex gap-1">
-                        <button class="btn btn-outline-secondary btn-sm py-0" onclick="toggleMap()" style="font-size:.74rem;">
-                            <i class="bi bi-arrows-expand" id="dmap-icon"></i>
-                        </button>
-                        <button class="btn btn-success btn-sm py-0" onclick="startNavigation()" style="font-size:.74rem;">
-                            <i class="bi bi-compass me-1"></i>นำทาง
+                        <button class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="toggleGoogleMap()" style="font-size:.74rem;" title="ย่อ/ขยายแผนที่">
+                            <i class="bi bi-arrows-expand" id="gmap-icon"></i>
                         </button>
                         <a href="https://www.google.com/maps/dir/?api=1&destination={{ place.latitude }},{{ place.longitude }}"
-                           target="_blank" class="btn btn-outline-secondary btn-sm py-0" style="font-size:.74rem;">
-                            <i class="bi bi-map"></i>
+                           target="_blank" class="btn btn-primary btn-sm py-0 px-2 fw-medium" style="font-size:.74rem;">
+                            <i class="bi bi-compass me-1"></i>เปิดนำทาง
                         </a>
                     </div>
                 </div>
-                <div id="detail-map" style="height:200px;border-radius:10px;z-index:0;transition:height .3s;" class="shadow-sm"></div>
-                <div id="nav-panel" class="d-none mt-2">
-                    <div class="alert alert-success py-2 small mb-1">
-                        <i class="bi bi-compass me-1"></i>นำทางไปยัง <strong>{{ place.name }}</strong>
-                        <button class="btn btn-sm btn-outline-danger float-end py-0" onclick="stopNavigation()">หยุด</button>
-                    </div>
-                    <div id="nav-instruction" class="alert alert-info py-2 small"></div>
+                
+                <!-- Google Maps Official Embed (100% Free - No API Key & No Billing Required) -->
+                <div id="gmap-wrapper" style="height:210px; border-radius:10px; overflow:hidden; transition:height .3s ease;" class="shadow-sm border">
+                    <iframe
+                        id="gmap-iframe"
+                        src="https://maps.google.com/maps?q={{ place.latitude }},{{ place.longitude }}&hl=th&z=15&output=embed"
+                        width="100%"
+                        height="100%"
+                        style="border:0;"
+                        allowfullscreen=""
+                        loading="lazy"
+                        referrerpolicy="no-referrer-when-downgrade">
+                    </iframe>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mt-2 px-1">
+                    <small class="text-muted" style="font-size:0.75rem;">
+                        <i class="bi bi-pin-map me-1"></i>{{ place.latitude }}, {{ place.longitude }}
+                    </small>
+                    <a href="https://www.google.com/maps/search/?api=1&query={{ place.latitude }},{{ place.longitude }}"
+                       target="_blank" class="text-decoration-none small text-primary" style="font-size:0.75rem;">
+                        ดูบน Google Maps ใหญ่ <i class="bi bi-box-arrow-up-right"></i>
+                    </a>
                 </div>
             </div>
         </div>
@@ -962,61 +977,18 @@ document.getElementById('gallery')?.addEventListener('slid.bs.carousel', e => {
 </script>
 
 {% if place.latitude and place.longitude %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
 <script>
-const destLat = {{ place.latitude }}, destLng = {{ place.longitude }};
-let dmapExpanded = false, userMarker = null, routingControl = null, watchId = null;
-
-const map = L.map('detail-map').setView([destLat, destLng], 11);
-L.tileLayer('/tile/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19
-}).addTo(map);
-L.marker([destLat, destLng]).addTo(map)
- .bindPopup('<strong>{{ place.name }}</strong>').openPopup();
-
-function toggleMap() {
-    dmapExpanded = !dmapExpanded;
-    document.getElementById('detail-map').style.height = dmapExpanded ? '350px' : '200px';
-    document.getElementById('dmap-icon').className = dmapExpanded ? 'bi bi-arrows-collapse' : 'bi bi-arrows-expand';
-    setTimeout(() => map.invalidateSize(), 320);
-}
-
-function startNavigation() {
-    if (!navigator.geolocation) { alert('เบราว์เซอร์ไม่รองรับ GPS'); return; }
-    document.getElementById('nav-panel').classList.remove('d-none');
-    document.getElementById('nav-instruction').innerHTML = '<i class="bi bi-hourglass me-1"></i>กำลังดึงตำแหน่ง...';
-    watchId = navigator.geolocation.watchPosition(pos => {
-        const {latitude: uLat, longitude: uLng} = pos.coords;
-        if (userMarker) map.removeLayer(userMarker);
-        userMarker = L.marker([uLat, uLng]).addTo(map).bindPopup('คุณอยู่ที่นี่');
-        const dist = map.distance([uLat, uLng], [destLat, destLng]);
-        document.getElementById('nav-instruction').innerHTML =
-            `<i class="bi bi-geo-alt me-1"></i>ระยะทาง: <strong>${dist < 1000 ? Math.round(dist)+' ม.' : (dist/1000).toFixed(1)+' กม.'}</strong>`;
-        if (routingControl) map.removeControl(routingControl);
-        routingControl = L.Routing.control({
-            waypoints: [L.latLng(uLat, uLng), L.latLng(destLat, destLng)],
-            routeWhileDragging: false, addWaypoints: false,
-            draggableWaypoints: false, show: false,
-            lineOptions: {styles: [{color:'#0d6efd', weight:5, opacity:.8}]},
-            createMarker: () => null,
-        }).addTo(map);
-        map.fitBounds([[uLat, uLng], [destLat, destLng]], {padding:[60,60]});
-    }, () => {
-        document.getElementById('nav-instruction').innerHTML =
-            '<i class="bi bi-exclamation-triangle me-1"></i>ไม่สามารถดึงตำแหน่งได้';
-    }, {enableHighAccuracy: true, maximumAge: 5000});
-}
-
-function stopNavigation() {
-    if (watchId) navigator.geolocation.clearWatch(watchId);
-    if (routingControl) map.removeControl(routingControl);
-    if (userMarker) map.removeLayer(userMarker);
-    document.getElementById('nav-panel').classList.add('d-none');
-    map.setView([destLat, destLng], 11);
+let gmapExpanded = false;
+function toggleGoogleMap() {
+    gmapExpanded = !gmapExpanded;
+    const wrapper = document.getElementById('gmap-wrapper');
+    const icon = document.getElementById('gmap-icon');
+    if (wrapper) {
+        wrapper.style.height = gmapExpanded ? '380px' : '210px';
+    }
+    if (icon) {
+        icon.className = gmapExpanded ? 'bi bi-arrows-collapse' : 'bi bi-arrows-expand';
+    }
 }
 </script>
 {% endif %}
