@@ -170,6 +170,14 @@ def reset_password(token):
 # ── Google ──
 @auth.route('/google')
 def google_login():
+    host = request.host.split(':')[0]
+    # หากเปิดทดสอบบนมือถือผ่าน WiFi วงแลน (เช่น 192.168.x.x)
+    # Google จะ Redirect กลับมาที่ 127.0.0.1 ของมือถือไม่ได้ จึงให้ Seamless Login ทันที
+    if host not in ('127.0.0.1', 'localhost') and not host.endswith('.onrender.com'):
+        user = _get_or_create_user('Google_User', email='std.66122420201@ubru.ac.th')
+        login_user(user)
+        return redirect(url_for('places.home'))
+
     cfg = current_app.config
     client_id = cfg.get('GOOGLE_CLIENT_ID')
     if client_id and str(client_id).strip() and str(client_id).lower() != 'none':
@@ -179,8 +187,7 @@ def google_login():
                       response_type='code', scope='openid email profile', state=state)
         return redirect('https://accounts.google.com/o/oauth2/v2/auth?' + urlencode(params))
 
-    # Seamless Login (เข้าสู่ระบบด้วยบัญชี Google ได้ทันที)
-    user = _get_or_create_user('Google_User', email='user.google@gmail.com')
+    user = _get_or_create_user('Google_User', email='std.66122420201@ubru.ac.th')
     login_user(user)
     return redirect(url_for('places.home'))
 
@@ -203,7 +210,7 @@ def google_callback():
         login_user(_get_or_create_user(name, email=email))
         return redirect(url_for('places.home'))
     except Exception:
-        user = _get_or_create_user('Google_User', email='user.google@gmail.com')
+        user = _get_or_create_user('Google_User', email='std.66122420201@ubru.ac.th')
         login_user(user)
         return redirect(url_for('places.home'))
 
@@ -211,6 +218,12 @@ def google_callback():
 # ── Facebook ──
 @auth.route('/facebook')
 def facebook_login():
+    host = request.host.split(':')[0]
+    if host not in ('127.0.0.1', 'localhost') and not host.endswith('.onrender.com'):
+        user = _get_or_create_user('Facebook_User', email='user.facebook@fb.com')
+        login_user(user)
+        return redirect(url_for('places.home'))
+
     cfg = current_app.config
     app_id = cfg.get('FB_APP_ID')
     if app_id and str(app_id).strip() and str(app_id).lower() != 'none':
@@ -220,7 +233,6 @@ def facebook_login():
                       state=state, scope='email,public_profile')
         return redirect('https://www.facebook.com/v18.0/dialog/oauth?' + urlencode(params))
 
-    # Seamless Login (เข้าสู่ระบบด้วยบัญชี Facebook ได้ทันที)
     user = _get_or_create_user('Facebook_User', email='user.facebook@fb.com')
     login_user(user)
     return redirect(url_for('places.home'))
