@@ -2,21 +2,37 @@
 {% block content %}
 
 <style>
-#map {
-    height: 420px;
+#gmap-container {
+    height: 440px;
     border-radius: 12px;
-    z-index: 0;
+    overflow: hidden;
     transition: height .3s ease;
 }
 @media (max-width: 575.98px) {
-    #map {
-        height: 280px;
+    #gmap-container {
+        height: 300px;
     }
+}
+.place-card-item {
+    cursor: pointer;
+    border-radius: 12px;
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    border: 2px solid transparent;
+}
+.place-card-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12) !important;
+}
+.place-card-item.active {
+    border-color: #0d6efd !important;
+    background-color: #f0f7ff;
 }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0 fw-semibold"><i class="bi bi-pin-map me-2"></i>แผนที่สถานที่ท่องเที่ยว</h5>
+    <h5 class="mb-0 fw-semibold text-primary">
+        <i class="bi bi-geo-alt-fill text-danger me-2"></i>แผนที่สถานที่ท่องเที่ยว (Google Maps)
+    </h5>
     <div class="d-flex gap-2">
         <button class="btn btn-outline-secondary btn-sm" onclick="toggleMap()">
             <i class="bi bi-arrows-collapse" id="toggle-icon"></i> <span id="toggle-text">ย่อแผนที่</span>
@@ -27,104 +43,120 @@
     </div>
 </div>
 
-<div id="map" class="shadow-sm mb-3"></div>
+<!-- Google Maps Container -->
+<div id="gmap-container" class="shadow-sm border mb-3">
+    <iframe
+        id="main-gmap-iframe"
+        src="https://maps.google.com/maps?q=15.2448,104.8473&hl=th&z=11&output=embed"
+        width="100%"
+        height="100%"
+        style="border:0;"
+        allowfullscreen=""
+        loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade">
+    </iframe>
+</div>
+
+<!-- แถบแสดงสถานที่ที่กำลังโฟกัสอยู่บน Google Maps -->
+<div id="active-place-banner" class="alert alert-primary py-2 px-3 mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2 shadow-sm rounded-3">
+    <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-pin-map-fill text-danger fs-5"></i>
+        <div>
+            <strong id="active-place-name">เลือกสถานที่ด้านล่างเพื่อโฟกัสบน Google Maps</strong>
+            <div class="text-muted small" id="active-place-loc">คลิกที่การ์ดสถานที่เพื่อเปลี่ยนตำแหน่งบนแผนที่</div>
+        </div>
+    </div>
+    <div class="d-flex gap-2" id="active-place-actions" style="display:none !important;">
+        <a id="btn-active-detail" href="#" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-info-circle me-1"></i>รายละเอียด
+        </a>
+        <a id="btn-active-nav" href="#" target="_blank" class="btn btn-sm btn-primary">
+            <i class="bi bi-compass me-1"></i>นำทาง (Google Maps)
+        </a>
+    </div>
+</div>
 
 <div id="no-places" class="text-center py-4 text-muted d-none">
     <i class="bi bi-geo-alt-fill" style="font-size:2.5rem;"></i>
     <p class="mt-2">ยังไม่มีสถานที่ที่มีพิกัด<br><small>Admin สามารถเพิ่มพิกัดได้ตอนเพิ่มสถานที่</small></p>
 </div>
 
-<h6 class="fw-semibold mb-2"><i class="bi bi-list-ul me-1"></i>สถานที่บนแผนที่</h6>
+<h6 class="fw-semibold mb-2"><i class="bi bi-list-ul me-1"></i>คลิกเลือกสถานที่เพื่อดูบนแผนที่ Google Maps</h6>
 <div class="row g-2" id="place-list"></div>
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 const focusId = {{ focus_id | tojson }};
 let mapExpanded = true;
-
-const map = L.map('map', {preferCanvas: true, minZoom: 6}).setView([15.2448, 104.8473], 12);
-
-// ใช้ CartoDB tile ซึ่งไม่บล็อก referer
-L.tileLayer('/tile/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19
-}).addTo(map);
-
-const icon = L.divIcon({
-    html: '<i class="bi bi-geo-alt-fill" style="font-size:1.8rem;color:#dc3545;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.3));"></i>',
-    className: '', iconAnchor: [12, 28], popupAnchor: [0, -28]
-});
+let placesData = [];
 
 function toggleMap() {
     mapExpanded = !mapExpanded;
-    document.getElementById('map').style.height = mapExpanded ? '420px' : '200px';
+    document.getElementById('gmap-container').style.height = mapExpanded ? '440px' : '220px';
     document.getElementById('toggle-icon').className = mapExpanded ? 'bi bi-arrows-collapse' : 'bi bi-arrows-expand';
     document.getElementById('toggle-text').textContent = mapExpanded ? 'ย่อแผนที่' : 'ขยายแผนที่';
-    setTimeout(() => map.invalidateSize(), 350);
+}
+
+function selectPlaceOnGoogleMap(p) {
+    const iframe = document.getElementById('main-gmap-iframe');
+    iframe.src = `https://maps.google.com/maps?q=${p.latitude},${p.longitude}&hl=th&z=15&output=embed`;
+
+    // อัปเดตข้อมูลแถบ Banner
+    document.getElementById('active-place-name').textContent = p.name;
+    document.getElementById('active-place-loc').textContent = `พิกัด: ${p.latitude}, ${p.longitude} • ${p.location}`;
+    
+    const actions = document.getElementById('active-place-actions');
+    actions.style.display = 'flex';
+    document.getElementById('btn-active-detail').href = `/place/${p.id}`;
+    document.getElementById('btn-active-nav').href = `https://www.google.com/maps/dir/?api=1&destination=${p.latitude},${p.longitude}`;
+
+    // Highlight การ์ดที่เลือก
+    document.querySelectorAll('.place-card-item').forEach(el => el.classList.remove('active'));
+    const targetCard = document.getElementById(`place-card-${p.id}`);
+    if (targetCard) targetCard.classList.add('active');
+
+    // เลื่อนขึ้นด้านบนแบบนุ่มนวล
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 fetch('/api/places')
     .then(r => r.json())
     .then(places => {
-        if (places.length === 0) {
+        placesData = places;
+        if (!places || places.length === 0) {
             document.getElementById('no-places').classList.remove('d-none');
             return;
         }
 
-        const markers = {};
-        const bounds = [];
-
-        places.forEach(p => {
-            const marker = L.marker([p.latitude, p.longitude], {icon})
-                .addTo(map)
-                .bindPopup(`
-                    <div style="min-width:190px;font-family:'Prompt',sans-serif;">
-                        ${p.image_url ? `<img src="/proxy-image?url=${encodeURIComponent(p.image_url)}" style="width:100%;height:90px;object-fit:cover;border-radius:6px;margin-bottom:6px;" onerror="this.style.display='none'">` : ''}
-                        <div style="font-weight:600;font-size:0.9rem;color:#212529;margin-bottom:2px;">${p.name}</div>
-                        <div style="font-size:0.78rem;color:#6c757d;margin-bottom:4px;"><i class="bi bi-geo-alt"></i> ${p.location}</div>
-                        ${p.avg_rating ? `<span style="background:#ffc107;color:#000;font-size:0.75rem;padding:1px 6px;border-radius:4px;"><i class="bi bi-star-fill"></i> ${p.avg_rating}</span>` : ''}
-                        <div style="margin-top:6px;">
-                            <a href="/place/${p.id}" style="display:block;background:#0d6efd;color:#fff;text-align:center;padding:4px;border-radius:6px;font-size:0.8rem;text-decoration:none;">รายละเอียด</a>
-                        </div>
-                    </div>
-                `);
-            markers[p.id] = marker;
-            bounds.push([p.latitude, p.longitude]);
-
+        const listContainer = document.getElementById('place-list');
+        places.forEach((p, index) => {
             const col = document.createElement('div');
             col.className = 'col-6 col-md-4 col-lg-3';
             col.innerHTML = `
-                <div class="card shadow-sm border-0 h-100" style="border-radius:10px;overflow:hidden;cursor:pointer;" onclick="focusPlace(${p.id})">
-                    ${p.image_url ? `<img src="/proxy-image?url=${encodeURIComponent(p.image_url)}" style="height:90px;object-fit:cover;width:100%;" onerror="this.style.display='none'">` : ''}
-                    <div class="p-2">
-                        <div style="font-weight:600;font-size:0.82rem;color:#212529;">${p.name}</div>
-                        <div style="font-size:0.74rem;color:#6c757d;"><i class="bi bi-geo-alt"></i> ${p.location}</div>
-                        ${p.avg_rating
-                            ? `<span style="background:#ffc107;color:#000;font-size:0.7rem;padding:1px 5px;border-radius:4px;"><i class="bi bi-star-fill"></i> ${p.avg_rating}</span>`
-                            : `<span style="background:#e9ecef;color:#6c757d;font-size:0.7rem;padding:1px 5px;border-radius:4px;">ยังไม่มีรีวิว</span>`}
+                <div class="card shadow-sm place-card-item h-100" id="place-card-${p.id}" onclick='selectPlaceOnGoogleMap(placesData[${index}])'>
+                    ${p.image_url ? `<img src="/proxy-image?url=${encodeURIComponent(p.image_url)}" style="height:100px;object-fit:cover;width:100%;border-top-left-radius:10px;border-top-right-radius:10px;" onerror="this.style.display='none'">` : ''}
+                    <div class="p-2 d-flex flex-column justify-content-between flex-grow-1">
+                        <div>
+                            <div style="font-weight:600;font-size:0.84rem;color:#212529;" class="text-truncate">${p.name}</div>
+                            <div style="font-size:0.75rem;color:#6c757d;" class="text-truncate"><i class="bi bi-geo-alt"></i> ${p.location}</div>
+                        </div>
+                        <div class="mt-2 d-flex justify-content-between align-items-center">
+                            ${p.avg_rating
+                                ? `<span style="background:#ffc107;color:#000;font-size:0.7rem;padding:1px 5px;border-radius:4px;"><i class="bi bi-star-fill"></i> ${p.avg_rating}</span>`
+                                : `<span style="background:#e9ecef;color:#6c757d;font-size:0.7rem;padding:1px 5px;border-radius:4px;">ยังไม่มีรีวิว</span>`}
+                            <span class="text-primary small" style="font-size:0.75rem;"><i class="bi bi-pin-map"></i> ดูพิกัด</span>
+                        </div>
                     </div>
                 </div>`;
-            document.getElementById('place-list').appendChild(col);
+            listContainer.appendChild(col);
         });
 
-        if (bounds.length > 0) map.fitBounds(bounds, {padding: [50, 50]});
-
-        if (focusId && markers[focusId]) {
-            setTimeout(() => {
-                map.setView(markers[focusId].getLatLng(), 14);
-                markers[focusId].openPopup();
-            }, 300);
+        // ถ้ามี focus_id หรือเปิดเข้ามา ให้เลือกอันแรกเป็นค่าเริ่มต้น
+        if (focusId) {
+            const target = places.find(p => p.id === focusId);
+            if (target) selectPlaceOnGoogleMap(target);
+        } else if (places.length > 0) {
+            selectPlaceOnGoogleMap(places[0]);
         }
-
-        window.focusPlace = (id) => {
-            if (markers[id]) {
-                map.setView(markers[id].getLatLng(), 15);
-                markers[id].openPopup();
-                window.scrollTo({top: 0, behavior: 'smooth'});
-            }
-        };
     });
 </script>
 

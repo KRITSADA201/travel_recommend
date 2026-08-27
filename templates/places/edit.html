@@ -85,20 +85,28 @@
         <!-- พิกัดแผนที่ -->
         <hr class="my-4 text-muted">
         <div class="mb-2">
-            <h6 class="fw-semibold mb-0"><i class="bi bi-pin-map-fill me-1 text-danger"></i>พิกัดแผนที่</h6>
-            <small class="text-muted">คลิกบนแผนที่หรือลากหมุดเพื่อเลือกตำแหน่งพิกัด</small>
+            <h6 class="fw-semibold mb-0 text-primary"><i class="bi bi-geo-alt-fill me-1 text-danger"></i>พิกัดตำแหน่ง (Google Maps)</h6>
+            <small class="text-muted">ค้นหาชื่อสถานที่ หรือกรอกพิกัด Latitude / Longitude เพื่อดูตัวอย่างบน Google Maps</small>
         </div>
 
-        <div class="row g-2 mb-2">
+        <div class="input-group input-group-sm mb-3">
+            <span class="input-group-text bg-light"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" id="map-search" class="form-control" placeholder="พิมพ์ชื่อสถานที่เพื่อค้นหาพิกัด...">
+            <button type="button" class="btn btn-primary" onclick="searchOnMap()">
+                <i class="bi bi-search me-1"></i>ค้นหาพิกัด
+            </button>
+        </div>
+
+        <div class="row g-2 mb-3">
             <div class="col-md-5">
-                <label class="form-label small text-muted">Latitude</label>
+                <label class="form-label small text-muted">Latitude (ละติจูด)</label>
                 <input type="text" name="latitude" id="lat-input" class="form-control form-control-sm"
-                       value="{{ place.latitude or '' }}" oninput="updateMapFromInput()">
+                       value="{{ place.latitude or '' }}" oninput="updateGoogleMapFromInput()">
             </div>
             <div class="col-md-5">
-                <label class="form-label small text-muted">Longitude</label>
+                <label class="form-label small text-muted">Longitude (ลองจิจูด)</label>
                 <input type="text" name="longitude" id="lng-input" class="form-control form-control-sm"
-                       value="{{ place.longitude or '' }}" oninput="updateMapFromInput()">
+                       value="{{ place.longitude or '' }}" oninput="updateGoogleMapFromInput()">
             </div>
             <div class="col-md-2 d-flex align-items-end">
                 <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="getMyLocation()">
@@ -107,13 +115,19 @@
             </div>
         </div>
 
-        <div class="input-group input-group-sm mb-2">
-            <span class="input-group-text bg-light"><i class="bi bi-search text-muted"></i></span>
-            <input type="text" id="map-search" class="form-control" placeholder="ค้นหาตำแหน่งบนแผนที่...">
-            <button type="button" class="btn btn-outline-secondary" onclick="searchOnMap()">ค้นหา</button>
+        <!-- Google Maps Embed Live Preview -->
+        <div id="edit-gmap-wrapper" style="height:290px; border-radius:12px; overflow:hidden;" class="shadow-sm border mb-3">
+            <iframe
+                id="edit-gmap-iframe"
+                src="https://maps.google.com/maps?q={{ place.latitude or 15.2448 }},{{ place.longitude or 104.8473 }}&hl=th&z=14&output=embed"
+                width="100%"
+                height="100%"
+                style="border:0;"
+                allowfullscreen=""
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade">
+            </iframe>
         </div>
-
-        <div id="edit-map" style="height:260px;border-radius:10px;z-index:0;" class="shadow-sm mb-3"></div>
 
         <div class="d-flex gap-2 justify-content-end pt-2">
             <a href="{{ url_for('places.detail', id=place.id) }}" class="btn btn-light btn-sm px-3">ยกเลิก</a>
@@ -126,8 +140,6 @@
 </div>
 </div>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 function addNewImageRow() {
     const row = document.createElement('div');
@@ -143,62 +155,80 @@ function removeNewRow(btn) {
     if (rows.length > 1) btn.closest('.new-img-row').remove();
 }
 
-const initLat = {{ place.latitude or 15.2448 }};
-const initLng = {{ place.longitude or 104.8473 }};
-const map = L.map('edit-map').setView([initLat, initLng], {{ 13 if place.latitude else 9 }});
-L.tileLayer('/tile/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19
-}).addTo(map);
-let marker = {% if place.latitude %}L.marker([{{ place.latitude }}, {{ place.longitude }}], {draggable:true}).addTo(map){% else %}null{% endif %};
-{% if place.latitude %}
-marker.on('dragend', e => setInputs(e.target.getLatLng().lat, e.target.getLatLng().lng));
-{% endif %}
+function updateGoogleMap(lat, lng) {
+    const iframe = document.getElementById('edit-gmap-iframe');
+    if (iframe && lat && lng) {
+        iframe.src = `https://maps.google.com/maps?q=${lat},${lng}&hl=th&z=15&output=embed`;
+    }
+}
 
-map.on('click', e => setMarker(e.latlng.lat, e.latlng.lng));
-function setMarker(lat, lng) {
-    if (marker) map.removeLayer(marker);
-    marker = L.marker([lat, lng], {draggable:true}).addTo(map);
-    marker.on('dragend', e => setInputs(e.target.getLatLng().lat, e.target.getLatLng().lng));
-    setInputs(lat, lng);
+function updateGoogleMapFromInput() {
+    const lat = document.getElementById('lat-input').value.trim();
+    const lng = document.getElementById('lng-input').value.trim();
+    if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+        updateGoogleMap(lat, lng);
+    }
 }
-function setInputs(lat, lng) {
-    document.getElementById('lat-input').value = lat.toFixed(6);
-    document.getElementById('lng-input').value = lng.toFixed(6);
-}
-function updateMapFromInput() {
-    const lat = parseFloat(document.getElementById('lat-input').value);
-    const lng = parseFloat(document.getElementById('lng-input').value);
-    if (!isNaN(lat) && !isNaN(lng)) { map.setView([lat, lng], 14); setMarker(lat, lng); }
-}
+
 function getMyLocation() {
-    navigator.geolocation?.getCurrentPosition(
-        p => { map.setView([p.coords.latitude, p.coords.longitude], 15); setMarker(p.coords.latitude, p.coords.longitude); },
-        () => alert('ไม่สามารถดึงตำแหน่งได้')
+    if (!navigator.geolocation) { alert('เบราว์เซอร์ไม่รองรับ GPS'); return; }
+    navigator.geolocation.getCurrentPosition(
+        p => {
+            const lat = p.coords.latitude.toFixed(6);
+            const lng = p.coords.longitude.toFixed(6);
+            document.getElementById('lat-input').value = lat;
+            document.getElementById('lng-input').value = lng;
+            updateGoogleMap(lat, lng);
+        },
+        () => alert('ไม่สามารถดึงตำแหน่งปัจจุบันได้')
     );
 }
-function searchOnMap() {
-    const q = document.getElementById('map-search').value.trim();
-    if (!q) return;
-    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&accept-language=th,en`)
-        .then(r => r.json())
-        .then(d => {
-            if (d.length) {
-                map.setView([+d[0].lat, +d[0].lon], 15);
-                setMarker(+d[0].lat, +d[0].lon);
-            } else {
-                return fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ' Thailand')}&format=json&limit=1&accept-language=th,en`)
-                    .then(r => r.json())
-                    .then(d2 => {
-                        if (d2.length) {
-                            map.setView([+d2[0].lat, +d2[0].lon], 15);
-                            setMarker(+d2[0].lat, +d2[0].lon);
-                        } else {
-                            alert('ไม่พบตำแหน่ง "' + q + '"\nลองพิมพ์ชื่อเป็นภาษาอังกฤษ หรือใส่ชื่อจังหวัดต่อท้าย\nเช่น "Godfather Coffee Ubon Ratchathani"');
-                        }
-                    });
+
+async function searchOnMap() {
+    const rawQ = document.getElementById('map-search').value.trim();
+    if (!rawQ) return;
+
+    const btn = document.querySelector('button[onclick="searchOnMap()"]');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>ค้นหา...'; }
+
+    const queries = [
+        rawQ,
+        rawQ + ' อุบลราชธานี',
+        rawQ + ' Thailand',
+        rawQ.replace(/ศูนย์บริการ|จุดผ่านแดนถาวร|จุดผ่านแดน|ด่านพรมแดน|ด่านตรวจ/g, '').trim(),
+        rawQ.split(' ')[0],
+        rawQ.split(' ').slice(-1)[0]
+    ].filter(q => q && q.length >= 2);
+
+    const uniqueQueries = [...new Set(queries)];
+    let found = false;
+
+    for (const q of uniqueQueries) {
+        try {
+            const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&accept-language=th,en`);
+            const data = await resp.json();
+            if (data && data.length > 0) {
+                const lat = parseFloat(data[0].lat).toFixed(6);
+                const lng = parseFloat(data[0].lon).toFixed(6);
+                document.getElementById('lat-input').value = lat;
+                document.getElementById('lng-input').value = lng;
+                updateGoogleMap(lat, lng);
+                found = true;
+                break;
             }
-        });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-search me-1"></i>ค้นหาพิกัด'; }
+
+    if (!found) {
+        const gmapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rawQ)}`;
+        if (confirm(`ไม่พบพิกัดอัตโนมัติสำหรับ "${rawQ}"\n\nต้องการเปิด Google Maps เพื่อดูหรือคัดลอกพิกัดโดยตรงหรือไม่?`)) {
+            window.open(gmapUrl, '_blank');
+        }
+    }
 }
 document.getElementById('map-search').addEventListener('keypress', e => { if(e.key==='Enter'){e.preventDefault();searchOnMap();} });
 </script>

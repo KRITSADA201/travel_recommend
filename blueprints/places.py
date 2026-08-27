@@ -16,6 +16,19 @@ def _favorites():
         return set()
     return {f.place_id for f in Favorite.query.filter_by(user_id=current_user.id).all()}
 
+def place_sort_key(p):
+    """
+    Multi-Tier Ranking Algorithm:
+    1. คะแนนดาวเฉลี่ยสูงสุด (Quality)
+    2. จำนวนผู้รีวิวมากที่สุด (Popularity / Review Volume)
+    3. มีรูปภาพสมบูรณ์ (Media completeness)
+    4. ID ลำดับสถานที่
+    """
+    avg = p.avg_rating if p.avg_rating is not None else -1
+    review_count = len(p.reviews) if p.reviews else 0
+    has_image = 1 if (p.images and len(p.images) > 0) else 0
+    return (avg, review_count, has_image, p.id)
+
 
 # ── Home ──────────────────────────────────────────────────────────────────────
 @places.route('/')
@@ -23,15 +36,12 @@ def home():
     all_places = Place.query.all()
     categories = Category.query.all()
 
-    def sort_key(p):
-        return p.avg_rating if p.avg_rating is not None else -1
-
-    sorted_places = sorted(all_places, key=sort_key, reverse=True)
+    sorted_places = sorted(all_places, key=place_sort_key, reverse=True)
 
     places_by_cat = {}
     for c in categories:
         cat_places = [p for p in all_places if p.category_id == c.id]
-        places_by_cat[c.id] = sorted(cat_places, key=sort_key, reverse=True)
+        places_by_cat[c.id] = sorted(cat_places, key=place_sort_key, reverse=True)
 
     return render_template('places/home.html',
                            places=sorted_places,
@@ -55,8 +65,6 @@ def list_places():
 
     query = Place.query
     if q:
-        # ค้นหาจากชื่อสถานที่ หรือ "หัวข้อหลัก" (หมวดหมู่) เท่านั้น
-        # (ไม่ค้นจากที่อยู่ ตำบล/อำเภอ/จังหวัด เพราะคำเช่น "วัด" ไปแมตช์กับคำว่า "จังหวัด" โดยบังเอิญ ทำให้ผลลัพธ์ไม่ตรงหมวด)
         query = query.join(Category, Place.category_id == Category.id).filter(
             Place.name.ilike(f'%{q}%') |
             Category.name.ilike(f'%{q}%')
@@ -65,8 +73,8 @@ def list_places():
         query = query.filter(Place.category_id == cat)
 
     all_places = query.all()
-    # เรียงคะแนนสูง→ต่ำ, ไม่มีคะแนนไว้ท้าย
-    all_places = sorted(all_places, key=lambda p: p.avg_rating if p.avg_rating is not None else -1, reverse=True)
+    # เรียงตาม Multi-Tier Ranking (ดาวเฉลี่ย -> จำนวนรีวิว -> มีรูป)
+    all_places = sorted(all_places, key=place_sort_key, reverse=True)
     categories = Category.query.all()
     return render_template('places/list.html',
                            places=all_places,
@@ -380,6 +388,9 @@ def api_nearby():
                  for p in candidates]
     with_dist.sort(key=lambda x: x[1])
     nearby = [(p, round(d, 1)) for p, d in with_dist if d <= 100][:6]
+    # Fallback: หากเปิดจากคอมพิวเตอร์หรือตำแหน่งห่างเกิน 100 กม. ให้ดึงสถานที่ใกล้ที่สุด 6 แห่งเสมอ
+    if not nearby and with_dist:
+        nearby = [(p, round(d, 1)) for p, d in with_dist][:6]
 
     result = []
     for p, dist in nearby:
@@ -440,6 +451,9 @@ def api_nearby_hotels():
                  for p in candidates]
     with_dist.sort(key=lambda x: x[1])
     nearby = [(p, round(d, 1)) for p, d in with_dist if d <= 100][:6]
+    # Fallback: หากเปิดจากคอมพิวเตอร์หรือตำแหน่งห่างเกิน 100 กม. ให้ดึงที่พักใกล้ที่สุด 6 แห่งเสมอ
+    if not nearby and with_dist:
+        nearby = [(p, round(d, 1)) for p, d in with_dist][:6]
 
     result = []
     for p, dist in nearby:
@@ -512,21 +526,18 @@ def proxy_image():
         return '', 404
 
 
-# ── Tile Proxy (แก้ปัญหา OpenStreetMap บล็อก Referer พร้อมระบบ Fallback) ──
+# ── Tile Proxy (ดึงจาก OSM France HOT ความเร็วสูง ไม่มีลายน้ำ) ────────
 @places.route('/tile/<int:z>/<int:x>/<int:y>.png')
 def tile_proxy(z, x, y):
-    """Flask ไปดึง tile จาก OSM / CartoDB แทนเบราว์เซอร์ → ไม่ถูกบล็อก และโหลดเร็ว 100%"""
+    """Flask ไปดึง tile จาก OSM France HOT → สะอาด ไม่มีลายน้ำ และโหลดเร็ว 100%"""
     sources = [
-        f'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-        f'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        f'https://b.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'
+        f'https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+        f'https://b.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+        f'https://c.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'
     ]
     for url in sources:
         try:
-            resp = http.get(url, headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': 'https://www.openstreetmap.org/',
-            }, timeout=6)
+            resp = http.get(url, timeout=5)
             if resp.status_code == 200:
                 return Response(
                     resp.content,

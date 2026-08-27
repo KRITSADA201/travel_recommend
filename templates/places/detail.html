@@ -994,14 +994,20 @@ function toggleGoogleMap() {
 {% endif %}
 
 
-<!-- สถานที่ใกล้เคียง (ใช้ GPS จริง) -->
+{% set is_hotel_cat = place.category and ('ที่พัก' in place.category.name or 'โรงแรม' in place.category.name or 'ห้องพัก' in place.category.name or 'รีสอร์ท' in place.category.name or 'เกสต์เฮ้าส์' in place.category.name) %}
+
+<!-- สถานที่ใกล้เคียง (หมวดหมู่เดียวกัน) -->
 <div class="mt-5" id="nearby-section" style="display:none;">
     <h5 class="fw-semibold mb-1">
-        <i class="bi bi-geo-alt-fill text-danger me-2"></i>{{ place.category.name if place.category else 'สถานที่' }}ใกล้เคียงคุณ
+        {% if is_hotel_cat %}
+            <i class="bi bi-building text-primary me-2"></i>ที่พักอื่น ๆ แนะนำใกล้เคียง
+        {% else %}
+            <i class="bi bi-geo-alt-fill text-danger me-2"></i>{{ place.category.name if place.category else 'สถานที่' }}ใกล้เคียง
+        {% endif %}
         <span class="text-muted fw-normal small" id="nearby-dist-label"></span>
     </h5>
     <p class="text-muted small mb-3" id="nearby-status">
-        <i class="bi bi-hourglass me-1"></i>กำลังดึงตำแหน่งของคุณ...
+        <i class="bi bi-hourglass me-1"></i>กำลังดึงข้อมูลสถานที่ใกล้เคียง...
     </p>
     <div class="row g-3" id="nearby-list"></div>
 </div>
@@ -1009,8 +1015,8 @@ function toggleGoogleMap() {
 <script>
 (function() {
     const placeId = {{ place.id }};
-
-    if (!navigator.geolocation) return;
+    const placeLat = {{ place.latitude or 15.2448 }};
+    const placeLng = {{ place.longitude or 104.8473 }};
 
     const section = document.getElementById('nearby-section');
     const status  = document.getElementById('nearby-status');
@@ -1019,22 +1025,18 @@ function toggleGoogleMap() {
 
     section.style.display = '';
 
-    navigator.geolocation.getCurrentPosition(pos => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-
-        status.innerHTML = `<i class="bi bi-check-circle text-success me-1"></i>ตำแหน่งของคุณ: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-
+    function loadNearbyPlaces(lat, lng, isUserGps) {
         fetch(`/api/nearby?lat=${lat}&lng=${lng}&exclude=${placeId}`)
             .then(r => r.json())
             .then(places => {
                 if (!places.length) {
-                    status.innerHTML = '<i class="bi bi-info-circle me-1"></i>ไม่พบ{{ place.category.name if place.category else "สถานที่" }}อื่นภายใน 100 กม. จากตำแหน่งของคุณ';
+                    status.innerHTML = '<i class="bi bi-info-circle me-1"></i>ยังไม่มีสถานที่อื่นในหมวดหมู่นี้';
                     return;
                 }
                 status.style.display = 'none';
-                label.textContent = `(ภายใน 100 กม. — พบ ${places.length} แห่ง)`;
+                label.textContent = isUserGps ? `(พบ ${places.length} แห่ง)` : `(แนะนำใกล้สถานที่นี้ — พบ ${places.length} แห่ง)`;
 
+                list.innerHTML = '';
                 places.forEach(p => {
                     const col = document.createElement('div');
                     col.className = 'col-6 col-md-4 col-lg-2';
@@ -1078,19 +1080,26 @@ function toggleGoogleMap() {
             .catch(() => {
                 status.textContent = 'ไม่สามารถโหลดสถานที่ใกล้เคียงได้';
             });
+    }
 
-    }, () => {
-        status.innerHTML = '<i class="bi bi-exclamation-triangle text-warning me-1"></i>ไม่สามารถดึงตำแหน่งได้ — กรุณาอนุญาต GPS ในเบราว์เซอร์';
-        section.style.display = '';
-    }, { enableHighAccuracy: true, timeout: 10000 });
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            pos => loadNearbyPlaces(pos.coords.latitude, pos.coords.longitude, true),
+            () => loadNearbyPlaces(placeLat, placeLng, false),
+            { enableHighAccuracy: true, timeout: 5000 }
+        );
+    } else {
+        loadNearbyPlaces(placeLat, placeLng, false);
+    }
 })();
 </script>
 
 
-<!-- ห้องพักใกล้เคียง -->
+{% if not is_hotel_cat %}
+<!-- ห้องพักใกล้เคียง (แสดงเฉพาะเมื่อสถานที่ปัจจุบันไม่ใช่วัด/ธรรมชาติ/คาเฟ่ แต่ไม่ใช่ที่พักเอง) -->
 <div class="mt-4" id="hotel-section" style="display:none;">
     <h5 class="fw-semibold mb-1">
-        <i class="bi bi-building me-2 text-primary"></i>ที่พักใกล้เคียง
+        <i class="bi bi-building me-2 text-primary"></i>ที่พักใกล้เคียงสถานที่นี้
         <span class="text-muted fw-normal small" id="hotel-dist-label"></span>
     </h5>
     <p class="text-muted small mb-3" id="hotel-status">
@@ -1101,25 +1110,24 @@ function toggleGoogleMap() {
 
 <script>
 (function() {
-    if (!navigator.geolocation) return;
     const hotelSection = document.getElementById('hotel-section');
     const hotelStatus  = document.getElementById('hotel-status');
     const hotelList    = document.getElementById('hotel-list');
     const hotelLabel   = document.getElementById('hotel-dist-label');
     const placeId = {{ place.id }};
+    const placeLat = {{ place.latitude or 15.2448 }};
+    const placeLng = {{ place.longitude or 104.8473 }};
 
-    navigator.geolocation.getCurrentPosition(pos => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-
+    function loadNearbyHotels(lat, lng, isUserGps) {
         fetch(`/api/nearby-hotels?lat=${lat}&lng=${lng}&exclude=${placeId}`)
             .then(r => r.json())
             .then(hotels => {
-                if (!hotels.length) return; // ซ่อน section ถ้าไม่มีห้องพัก
+                if (!hotels.length) return;
                 hotelSection.style.display = '';
                 hotelStatus.style.display = 'none';
-                hotelLabel.textContent = `(ภายใน 100 กม. — พบ ${hotels.length} แห่ง)`;
+                hotelLabel.textContent = isUserGps ? `(พบ ${hotels.length} แห่ง)` : `(แนะนำใกล้สถานที่นี้ — พบ ${hotels.length} แห่ง)`;
 
+                hotelList.innerHTML = '';
                 hotels.forEach(p => {
                     const col = document.createElement('div');
                     col.className = 'col-6 col-md-4 col-lg-2';
@@ -1160,8 +1168,19 @@ function toggleGoogleMap() {
                     hotelList.appendChild(col);
                 });
             });
-    }, () => {}, { enableHighAccuracy: true, timeout: 10000 });
+    }
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            pos => loadNearbyHotels(pos.coords.latitude, pos.coords.longitude, true),
+            () => loadNearbyHotels(placeLat, placeLng, false),
+            { enableHighAccuracy: true, timeout: 5000 }
+        );
+    } else {
+        loadNearbyHotels(placeLat, placeLng, false);
+    }
 })();
 </script>
+{% endif %}
 
 {% endblock %}
