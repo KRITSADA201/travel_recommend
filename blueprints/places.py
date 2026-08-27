@@ -219,15 +219,21 @@ def delete(id):
 
 
 # ── Favorites ─────────────────────────────────────────────────────────────────
-@places.route('/favorite/<int:place_id>')
+@places.route('/favorite/<int:place_id>', methods=['GET', 'POST'])
 @login_required
 def toggle_favorite(place_id):
     fav = Favorite.query.filter_by(user_id=current_user.id, place_id=place_id).first()
+    is_favorite = False
     if fav:
         db.session.delete(fav)
     else:
         db.session.add(Favorite(user_id=current_user.id, place_id=place_id))
+        is_favorite = True
     db.session.commit()
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.args.get('format') == 'json':
+        return jsonify({'success': True, 'is_favorite': is_favorite, 'place_id': place_id})
+
     return redirect(request.args.get('next', url_for('places.detail', id=place_id)))
 
 

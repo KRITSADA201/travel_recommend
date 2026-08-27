@@ -10,8 +10,10 @@
          onmouseout="this.style.transform='translateY(0)'"
          onclick="location.href='{{ url_for('places.detail', id=p.id) }}'">
         {% if p.primary_image %}
-        <div style="height:160px;overflow:hidden;">
-            <img src="{{ p.primary_image|proxy_url }}" style="width:100%;height:100%;object-fit:cover;"
+        <div style="height:180px;overflow:hidden;border-top-left-radius:12px;border-top-right-radius:12px;background:#e9ecef;">
+            <img src="{{ p.primary_image|proxy_url }}" style="width:100%;height:100%;object-fit:cover;transition:transform .3s;"
+                 onmouseover="this.style.transform='scale(1.05)'"
+                 onmouseout="this.style.transform='scale(1)'"
                  onerror="this.parentNode.style.display='none'">
         </div>
         {% endif %}

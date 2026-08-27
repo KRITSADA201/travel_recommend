@@ -1,6 +1,20 @@
 {% extends 'base.html' %}
 {% block content %}
 
+<style>
+#map {
+    height: 420px;
+    border-radius: 12px;
+    z-index: 0;
+    transition: height .3s ease;
+}
+@media (max-width: 575.98px) {
+    #map {
+        height: 280px;
+    }
+}
+</style>
+
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h5 class="mb-0 fw-semibold"><i class="bi bi-pin-map me-2"></i>แผนที่สถานที่ท่องเที่ยว</h5>
     <div class="d-flex gap-2">
@@ -13,7 +27,7 @@
     </div>
 </div>
 
-<div id="map" style="height:420px;border-radius:12px;z-index:0;" class="shadow mb-3"></div>
+<div id="map" class="shadow-sm mb-3"></div>
 
 <div id="no-places" class="text-center py-4 text-muted d-none">
     <i class="bi bi-geo-alt-fill" style="font-size:2.5rem;"></i>

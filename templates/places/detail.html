@@ -2,7 +2,30 @@
 {% block content %}
 <meta name="referrer" content="no-referrer">
 
-<div class="row g-4">
+<style>
+.gallery-slide-frame {
+    background: #0f172a;
+    height: 420px;
+    overflow: hidden;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+@media (max-width: 575.98px) {
+    .gallery-slide-frame {
+        height: 260px;
+    }
+}
+@media (min-width: 576px) and (max-width: 767.98px) {
+    .gallery-slide-frame {
+        height: 330px;
+    }
+}
+</style>
+
+<div class="row g-3 g-md-4">
     <div class="col-lg-8">
 
         <!-- การ์ดหลัก -->
@@ -14,9 +37,9 @@
                 <div class="carousel-inner">
                     {% for img in place.images %}
                     <div class="carousel-item {{ 'active' if loop.first }}">
-                        <div style="background:#111;height:360px;overflow:hidden;">
+                        <div class="gallery-slide-frame">
                             <img src="{{ img.url|proxy_url }}"
-                                 style="width:100%;height:100%;object-fit:contain;display:block;"
+                                 style="max-width:100%;max-height:100%;object-fit:contain;display:block;"
                                  onerror="this.parentNode.parentNode.parentNode.style.display='none'">
                         </div>
                         {% if img.caption %}
@@ -86,15 +109,14 @@
                 <!-- ปุ่มแอคชัน -->
                 <div class="d-flex gap-2 flex-wrap mt-3">
                     {% if current_user.is_authenticated %}
-                        {% if is_favorite %}
-                        <a href="{{ url_for('places.toggle_favorite', place_id=place.id) }}" class="btn btn-warning btn-sm">
-                            <i class="bi bi-heart-fill me-1"></i>เอาออกจากโปรด
+                        <a href="{{ url_for('places.toggle_favorite', place_id=place.id) }}"
+                           id="btn-fav-detail"
+                           onclick="toggleFavDetail(this, event, {{ place.id }}); return false;"
+                           class="btn {{ 'btn-warning' if is_favorite else 'btn-outline-warning' }} btn-sm"
+                           style="transition: all .2s;">
+                            <i class="bi {{ 'bi-heart-fill' if is_favorite else 'bi-heart' }} me-1"></i>
+                            <span>{{ 'เอาออกจากโปรด' if is_favorite else 'บันทึกโปรด' }}</span>
                         </a>
-                        {% else %}
-                        <a href="{{ url_for('places.toggle_favorite', place_id=place.id) }}" class="btn btn-outline-warning btn-sm">
-                            <i class="bi bi-heart me-1"></i>บันทึกโปรด
-                        </a>
-                        {% endif %}
                     {% endif %}
                     {% if current_user.is_authenticated and current_user.is_admin %}
                     <a href="{{ url_for('places.edit', id=place.id) }}" class="btn btn-outline-secondary btn-sm">
@@ -108,6 +130,36 @@
                 </div>
             </div>
         </div>
+
+        <script>
+        function toggleFavDetail(btn, event, placeId) {
+            if (event) event.preventDefault();
+            btn.style.opacity = '0.7';
+            fetch('/favorite/' + placeId + '?format=json', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.style.opacity = '1';
+                const icon = btn.querySelector('i');
+                const text = btn.querySelector('span');
+                if (data.is_favorite) {
+                    btn.className = 'btn btn-warning btn-sm';
+                    icon.className = 'bi bi-heart-fill me-1';
+                    text.textContent = 'เอาออกจากโปรด';
+                } else {
+                    btn.className = 'btn btn-outline-warning btn-sm';
+                    icon.className = 'bi bi-heart me-1';
+                    text.textContent = 'บันทึกโปรด';
+                }
+            })
+            .catch(() => {
+                btn.style.opacity = '1';
+                // Fallback to normal navigation if fetch fails
+                window.location.href = btn.href;
+            });
+        }
+        </script>
 
         {% if current_user.is_authenticated and current_user.is_admin %}
         <!-- Delete Place Modal -->

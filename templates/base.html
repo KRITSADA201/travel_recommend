@@ -18,25 +18,40 @@
         .navbar{
             background:#111827 !important;
             box-shadow:0 2px 8px rgba(0,0,0,.1);
+            padding-top: .6rem;
+            padding-bottom: .6rem;
         }
 
         .navbar-brand{
             font-weight:600;
             letter-spacing:.3px;
+            font-size: 1.05rem;
         }
 
         .nav-link-clean{
-            color:rgba(255,255,255,.72);
+            color:rgba(255,255,255,.75);
             font-size:.88rem;
             text-decoration:none;
-            padding:.4rem .65rem;
-            border-radius:6px;
+            padding:.45rem .75rem;
+            border-radius:8px;
             transition:.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
         }
 
-        .nav-link-clean:hover{
+        .nav-link-clean:hover, .nav-link-clean:focus{
             color:#fff;
-            background:rgba(255,255,255,.08);
+            background:rgba(255,255,255,.1);
+        }
+
+        .navbar-toggler {
+            border: 1px solid rgba(255,255,255,.2);
+            padding: .35rem .55rem;
+            border-radius: 8px;
+        }
+        .navbar-toggler:focus {
+            box-shadow: none;
         }
 
         .navbar .vr-soft{
@@ -49,16 +64,17 @@
             display:flex;
             align-items:center;
             gap:.5rem;
-            background:rgba(255,255,255,.06);
-            border:1px solid rgba(255,255,255,.12);
+            background:rgba(255,255,255,.08);
+            border:1px solid rgba(255,255,255,.15);
             color:#fff;
             font-size:.85rem;
-            padding:.3rem .7rem .3rem .4rem;
+            padding:.3rem .75rem .3rem .4rem;
             border-radius:999px;
+            transition: .2s;
         }
 
         .user-menu-btn:hover{
-            background:rgba(255,255,255,.12);
+            background:rgba(255,255,255,.15);
         }
 
         .user-avatar{
@@ -106,123 +122,126 @@
             border-radius:16px;
         }
 
-        .modal-header{
-            border-bottom:none;
-        }
-
-        .modal-footer{
-            border-top:none;
+        /* Mobile Adjustments */
+        @media (max-width: 991.98px) {
+            .navbar-nav-mobile {
+                padding-top: .75rem;
+                padding-bottom: .5rem;
+                border-top: 1px solid rgba(255,255,255,.1);
+                margin-top: .5rem;
+                display: flex;
+                flex-direction: column;
+                gap: .4rem;
+            }
+            .navbar-nav-mobile .nav-link-clean {
+                padding: .55rem .75rem;
+                width: 100%;
+            }
+            .navbar-nav-mobile .vr-soft {
+                display: none;
+            }
         }
     </style>
 </head>
 
 <body>
 
-<nav class="navbar navbar-dark">
-    <div class="container-fluid px-4">
+<nav class="navbar navbar-expand-lg navbar-dark">
+    <div class="container-fluid px-3 px-md-4">
 
         <a class="navbar-brand d-flex align-items-center"
            href="{{ url_for('places.home') }}">
-            <i class="bi bi-globe-asia-australia me-2"></i>
-            Travel Recommend
+            <i class="bi bi-globe-asia-australia text-primary me-2"></i>
+            <span>Travel Recommend</span>
         </a>
 
-        <div class="d-flex align-items-center gap-1 flex-wrap">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
 
-        {% if current_user.is_authenticated %}
+        <div class="collapse navbar-collapse justify-content-end" id="mainNavbar">
+            <div class="navbar-nav-mobile d-lg-flex align-items-lg-center gap-1">
 
-            <a href="{{ url_for('places.home') }}" class="nav-link-clean">
-                <i class="bi bi-house"></i> หน้าแรก
-            </a>
+            {% if current_user.is_authenticated %}
 
-            <a href="{{ url_for('places.list_places') }}" class="nav-link-clean">
-                <i class="bi bi-map"></i> สถานที่
-            </a>
+                <a href="{{ url_for('places.home') }}" class="nav-link-clean">
+                    <i class="bi bi-house"></i> หน้าแรก
+                </a>
 
-            <a href="{{ url_for('places.map_view') }}" class="nav-link-clean">
-                <i class="bi bi-pin-map"></i> แผนที่
-            </a>
+                <a href="{{ url_for('places.list_places') }}" class="nav-link-clean">
+                    <i class="bi bi-map"></i> สถานที่
+                </a>
 
-            <a href="{{ url_for('places.my_favorites') }}" class="nav-link-clean">
-                <i class="bi bi-heart"></i> รายการโปรด
-            </a>
+                <a href="{{ url_for('places.map_view') }}" class="nav-link-clean">
+                    <i class="bi bi-pin-map"></i> แผนที่
+                </a>
 
-            <div class="vr-soft mx-2"></div>
+                <a href="{{ url_for('places.my_favorites') }}" class="nav-link-clean">
+                    <i class="bi bi-heart"></i> รายการโปรด
+                </a>
 
-            <div class="dropdown">
+                <div class="vr-soft mx-2 d-none d-lg-block"></div>
 
-                <button class="user-menu-btn dropdown-toggle"
-                        data-bs-toggle="dropdown">
+                <div class="dropdown mt-2 mt-lg-0">
+                    <button class="user-menu-btn dropdown-toggle w-100 justify-content-between justify-content-lg-start"
+                            data-bs-toggle="dropdown">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="user-avatar">
+                                {{ current_user.username[0]|upper }}
+                            </span>
+                            <span>{{ current_user.username }}</span>
+                        </div>
+                    </button>
 
-                    <span class="user-avatar">
-                        {{ current_user.username[0]|upper }}
-                    </span>
+                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-clean">
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('user.profile') }}">
+                                <i class="bi bi-person-circle me-1 text-primary"></i>
+                                โปรไฟล์ของฉัน
+                            </a>
+                        </li>
 
-                    <span>{{ current_user.username }}</span>
+                        {% if current_user.is_admin %}
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">
+                                <i class="bi bi-speedometer2 me-1 text-warning"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        {% endif %}
 
-                </button>
+                        <li><hr class="dropdown-divider"></li>
 
-                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-clean">
+                        <li>
+                            <a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">
+                                <i class="bi bi-box-arrow-right me-1"></i>
+                                ออกจากระบบ
+                            </a>
+                        </li>
+                    </ul>
+                </div>
 
-                    <li>
-                        <a class="dropdown-item"
-                           href="{{ url_for('user.profile') }}">
-                            <i class="bi bi-person-circle me-1"></i>
-                            โปรไฟล์ของฉัน
-                        </a>
-                    </li>
+            {% else %}
 
-                    {% if current_user.is_admin %}
-                    <li>
-                        <a class="dropdown-item"
-                           href="{{ url_for('admin.dashboard') }}">
-                            <i class="bi bi-speedometer2 me-1"></i>
-                            Dashboard
-                        </a>
-                    </li>
-                    {% endif %}
+                <a href="{{ url_for('auth.login') }}" class="nav-link-clean">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    เข้าสู่ระบบ
+                </a>
 
-                    <li><hr class="dropdown-divider"></li>
+                <a href="{{ url_for('auth.register') }}" class="btn btn-light btn-sm rounded-pill px-3 mt-1 mt-lg-0">
+                    <i class="bi bi-person-plus"></i>
+                    สมัครสมาชิก
+                </a>
 
-                    <li>
-                        <a class="dropdown-item text-danger"
-                           href="#"
-                           data-bs-toggle="modal"
-                           data-bs-target="#logoutModal">
-
-                            <i class="bi bi-box-arrow-right me-1"></i>
-                            ออกจากระบบ
-
-                        </a>
-                    </li>
-
-                </ul>
+            {% endif %}
 
             </div>
-
-        {% else %}
-
-            <a href="{{ url_for('auth.login') }}" class="nav-link-clean">
-                <i class="bi bi-box-arrow-in-right"></i>
-                เข้าสู่ระบบ
-            </a>
-
-            <a href="{{ url_for('auth.register') }}"
-               class="btn btn-light btn-sm rounded-pill px-3">
-
-                <i class="bi bi-person-plus"></i>
-                สมัครสมาชิก
-
-            </a>
-
-        {% endif %}
-
         </div>
 
     </div>
 </nav>
 
-<div class="container-fluid px-4 mt-4 pb-3">
+<div class="container-fluid px-3 px-md-4 mt-3 mt-md-4 pb-4">
 
     {% block content %}
     {% endblock %}
@@ -230,62 +249,24 @@
 </div>
 
 <!-- Logout Modal -->
-
-<div class="modal fade" id="logoutModal" tabindex="-1">
-
-    <div class="modal-dialog modal-dialog-centered">
-
-        <div class="modal-content shadow">
-
-            <div class="modal-header">
-
-                <h5 class="modal-title">
-                    <i class="bi bi-box-arrow-right text-danger me-2"></i>
-                    ออกจากระบบ
-                </h5>
-
-                <button class="btn-close"
-                        data-bs-dismiss="modal">
-                </button>
-
+<div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
+        <div class="modal-content shadow-sm border-0" style="border-radius:12px;">
+            <div class="modal-body text-center p-4">
+                <div class="mb-3">
+                    <i class="bi bi-box-arrow-right text-danger" style="font-size: 2.5rem;"></i>
+                </div>
+                <h6 class="fw-bold mb-2">ยืนยันการออกจากระบบ</h6>
+                <p class="text-muted small mb-4">คุณต้องการออกจากระบบ Travel Recommend ใช่หรือไม่?</p>
+                <div class="d-flex gap-2 justify-content-center">
+                    <button type="button" class="btn btn-light btn-sm px-3" data-bs-dismiss="modal">ยกเลิก</button>
+                    <a href="{{ url_for('auth.logout') }}" class="btn btn-danger btn-sm px-3">
+                        <i class="bi bi-box-arrow-right me-1"></i>ออกจากระบบ
+                    </a>
+                </div>
             </div>
-
-            <div class="modal-body">
-
-                <p class="mb-2">
-                    คุณต้องการออกจากระบบใช่หรือไม่?
-                </p>
-
-                <small class="text-muted">
-                    หากออกจากระบบ คุณสามารถเข้าสู่ระบบใหม่ได้ทุกเมื่อ
-                </small>
-
-            </div>
-
-            <div class="modal-footer">
-
-                <button class="btn btn-secondary"
-                        data-bs-dismiss="modal">
-
-                    ยกเลิก
-
-                </button>
-
-                <a href="{{ url_for('auth.logout') }}"
-                   class="btn btn-danger">
-
-                    <i class="bi bi-box-arrow-right me-1"></i>
-
-                    ออกจากระบบ
-
-                </a>
-
-            </div>
-
         </div>
-
     </div>
-
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

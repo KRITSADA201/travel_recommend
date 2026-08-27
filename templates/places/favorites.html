@@ -9,8 +9,10 @@
 <div class="col-12 col-md-6 col-lg-4">
     <div class="card h-100 shadow-sm border-0" style="border-radius:12px;overflow:hidden;">
         {% if p.primary_image %}
-            <div style="height:160px;overflow:hidden;">
-                <img src="{{ p.primary_image|proxy_url }}" style="width:100%;height:100%;object-fit:cover;"
+            <div style="height:180px;overflow:hidden;border-top-left-radius:12px;border-top-right-radius:12px;background:#e9ecef;">
+                <img src="{{ p.primary_image|proxy_url }}" style="width:100%;height:100%;object-fit:cover;transition:transform .3s;"
+                     onmouseover="this.style.transform='scale(1.05)'"
+                     onmouseout="this.style.transform='scale(1)'"
                      onerror="this.parentNode.style.display='none'">
             </div>
         {% endif %}
@@ -25,7 +27,12 @@
             <p class="text-secondary mb-3" style="font-size:0.82rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ p.detail }}</p>
             <div class="d-flex gap-1">
                 <a href="{{ url_for('places.detail', id=p.id) }}" class="btn btn-primary btn-sm py-1" style="font-size:0.78rem;"><i class="bi bi-info-circle me-1"></i>รายละเอียด</a>
-                <a href="{{ url_for('places.toggle_favorite', place_id=p.id, next='/favorites') }}" class="btn btn-warning btn-sm py-1" style="font-size:0.78rem;"><i class="bi bi-heart-fill me-1"></i>เอาออก</a>
+                <a href="{{ url_for('places.toggle_favorite', place_id=p.id, next='/favorites') }}"
+                   onclick="removeFavCard(this, event, {{ p.id }}); return false;"
+                   class="btn btn-warning btn-sm py-1"
+                   style="font-size:0.78rem;">
+                    <i class="bi bi-heart-fill me-1"></i>เอาออก
+                </a>
             </div>
         </div>
     </div>
@@ -33,7 +40,39 @@
 {% endfor %}
 </div>
 {% else %}
-<div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>ยังไม่มีรายการโปรด ไปเพิ่มได้ที่หน้า <a href="{{ url_for('places.list_places') }}">สถานที่</a></div>
+<div class="alert alert-info" id="empty-fav-msg"><i class="bi bi-info-circle me-1"></i>ยังไม่มีรายการโปรด ไปเพิ่มได้ที่หน้า <a href="{{ url_for('places.list_places') }}">สถานที่</a></div>
 {% endif %}
 
+<div id="no-more-favs" class="alert alert-info d-none"><i class="bi bi-info-circle me-1"></i>ยังไม่มีรายการโปรด ไปเพิ่มได้ที่หน้า <a href="{{ url_for('places.list_places') }}">สถานที่</a></div>
+
+<script>
+function removeFavCard(btn, event, placeId) {
+    if (event) event.preventDefault();
+    const cardCol = btn.closest('.col-12');
+    if (cardCol) cardCol.style.opacity = '0.4';
+
+    fetch('/favorite/' + placeId + '?format=json', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data.is_favorite && cardCol) {
+            cardCol.style.transition = 'all 0.3s ease';
+            cardCol.style.transform = 'scale(0.9)';
+            cardCol.style.opacity = '0';
+            setTimeout(() => {
+                cardCol.remove();
+                const remaining = document.querySelectorAll('.col-12.col-md-6.col-lg-4');
+                if (remaining.length === 0) {
+                    const alert = document.getElementById('no-more-favs');
+                    if (alert) alert.classList.remove('d-none');
+                }
+            }, 300);
+        }
+    })
+    .catch(() => {
+        window.location.href = btn.href;
+    });
+}
+</script>
 {% endblock %}

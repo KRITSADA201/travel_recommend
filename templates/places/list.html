@@ -52,8 +52,10 @@
          onmouseout="this.style.transform='translateY(0)'"
          onclick="location.href='{{ url_for('places.detail', id=p.id) }}'">
         {% if p.primary_image %}
-        <div style="height:170px;overflow:hidden;">
-            <img src="{{ p.primary_image|proxy_url }}" style="width:100%;height:100%;object-fit:cover;"
+        <div style="height:180px;overflow:hidden;border-top-left-radius:12px;border-top-right-radius:12px;background:#e9ecef;">
+            <img src="{{ p.primary_image|proxy_url }}" style="width:100%;height:100%;object-fit:cover;transition:transform .3s;"
+                 onmouseover="this.style.transform='scale(1.05)'"
+                 onmouseout="this.style.transform='scale(1)'"
                  onerror="this.parentNode.style.display='none'">
         </div>
         {% endif %}
@@ -79,11 +81,12 @@
                 </a>
                 {% endif %}
                 {% if current_user.is_authenticated %}
-                    {% if p.id in favorites %}
-                    <a href="{{ url_for('places.toggle_favorite', place_id=p.id, next='/places') }}" class="btn btn-warning btn-sm py-0" style="font-size:.74rem;"><i class="bi bi-heart-fill"></i></a>
-                    {% else %}
-                    <a href="{{ url_for('places.toggle_favorite', place_id=p.id, next='/places') }}" class="btn btn-outline-secondary btn-sm py-0" style="font-size:.74rem;"><i class="bi bi-heart"></i></a>
-                    {% endif %}
+                    <a href="{{ url_for('places.toggle_favorite', place_id=p.id, next='/places') }}"
+                       onclick="toggleFavList(this, event, {{ p.id }}); return false;"
+                       class="btn {{ 'btn-warning' if p.id in favorites else 'btn-outline-secondary' }} btn-sm py-0 btn-fav-list"
+                       style="font-size:.74rem; transition:all .2s;">
+                        <i class="bi {{ 'bi-heart-fill' if p.id in favorites else 'bi-heart' }}"></i>
+                    </a>
                 {% endif %}
                 {% if current_user.is_authenticated and current_user.is_admin %}
                 <a href="{{ url_for('places.edit', id=p.id) }}" class="btn btn-outline-secondary btn-sm py-0 ms-auto" style="font-size:.74rem;" onclick="event.stopPropagation()"><i class="bi bi-pencil"></i></a>
@@ -134,4 +137,33 @@
     <p class="mt-2">ไม่พบสถานที่ที่ค้นหา</p>
 </div>
 {% endif %}
+
+<script>
+function toggleFavList(btn, event, placeId) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    btn.style.opacity = '0.6';
+    fetch('/favorite/' + placeId + '?format=json', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        btn.style.opacity = '1';
+        const icon = btn.querySelector('i');
+        if (data.is_favorite) {
+            btn.className = 'btn btn-warning btn-sm py-0 btn-fav-list';
+            icon.className = 'bi bi-heart-fill';
+        } else {
+            btn.className = 'btn btn-outline-secondary btn-sm py-0 btn-fav-list';
+            icon.className = 'bi bi-heart';
+        }
+    })
+    .catch(() => {
+        btn.style.opacity = '1';
+        window.location.href = btn.href;
+    });
+}
+</script>
 {% endblock %}

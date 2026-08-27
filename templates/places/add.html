@@ -4,17 +4,21 @@
 
 <div class="row justify-content-center">
 <div class="col-lg-8">
-<div class="card shadow-sm border-0 p-4">
-    <h5 class="fw-semibold mb-4"><i class="bi bi-plus-circle me-2"></i>เพิ่มสถานที่</h5>
+<div class="card shadow-sm border-0 p-4" style="border-radius:12px;">
+    <div class="d-flex align-items-center mb-4">
+        <i class="bi bi-plus-circle-fill text-primary fs-4 me-2"></i>
+        <h5 class="fw-bold mb-0">เพิ่มสถานที่ท่องเที่ยว</h5>
+    </div>
 
     <form method="POST" id="place-form">
+        <!-- ข้อมูลทั่วไป -->
         <div class="row g-3 mb-3">
             <div class="col-md-8">
-                <label class="form-label fw-semibold">ชื่อสถานที่ <span class="text-danger">*</span></label>
-                <input type="text" name="name" class="form-control" required>
+                <label class="form-label small fw-semibold">ชื่อสถานที่ <span class="text-danger">*</span></label>
+                <input type="text" name="name" class="form-control" placeholder="เช่น วัดพระธาตุพนม, คาเฟ่ริมน้ำ" required>
             </div>
             <div class="col-md-4">
-                <label class="form-label fw-semibold">หมวดหมู่</label>
+                <label class="form-label small fw-semibold">หมวดหมู่</label>
                 <select name="category_id" class="form-select">
                     {% for c in categories %}
                     <option value="{{ c.id }}">{{ c.name }}</option>
@@ -24,78 +28,81 @@
         </div>
 
         <div class="mb-3">
-            <label class="form-label fw-semibold">ที่ตั้ง <span class="text-danger">*</span></label>
-            <input type="text" name="location" class="form-control" required>
+            <label class="form-label small fw-semibold">ที่ตั้ง / ที่อยู่ <span class="text-danger">*</span></label>
+            <input type="text" name="location" class="form-control" placeholder="เช่น อ.เมือง จ.อุบลราชธานี" required>
         </div>
 
         <div class="mb-3">
-            <label class="form-label fw-semibold">รายละเอียด <span class="text-danger">*</span></label>
-            <textarea name="detail" class="form-control" rows="4" required></textarea>
+            <label class="form-label small fw-semibold">รายละเอียดสถานที่ <span class="text-danger">*</span></label>
+            <textarea name="detail" class="form-control" rows="4" placeholder="กรอกรายละเอียด จุดเด่น หรือข้อมูลที่น่าสนใจของสถานที่..." required></textarea>
         </div>
 
-        <!-- ภาพหลายรูป -->
-        <hr>
-        <h6 class="fw-semibold mb-1"><i class="bi bi-images me-1"></i>รูปภาพ
-            <span class="text-muted fw-normal small">(วาง URL จาก Google Drive / OneDrive / ลิงก์รูปโดยตรง — ระบบแปลง URL ให้อัตโนมัติ)</span>
-        </h6>
-        <p class="text-muted small mb-2">
-            <i class="bi bi-info-circle me-1"></i>
-            วิธีรับลิงก์: Google Drive → คลิกขวา → แชร์ → ทุกคนที่มีลิงก์ → คัดลอก
-            แล้วเปลี่ยน <code>drive.google.com/file/d/ID/view</code> เป็น <code>drive.google.com/uc?id=ID</code>
-        </p>
+        <!-- รูปภาพ -->
+        <hr class="my-4 text-muted">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <h6 class="fw-semibold mb-0"><i class="bi bi-images me-1 text-primary"></i>รูปภาพสถานที่</h6>
+                <small class="text-muted">รองรับลิงก์รูปภาพโดยตรง, Google Drive หรือ OneDrive</small>
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="addImageRow()">
+                <i class="bi bi-plus me-1"></i>เพิ่มช่องรูป
+            </button>
+        </div>
 
-        <div id="image-list">
+        <div id="image-list" class="mb-3">
             <div class="image-row row g-2 mb-2 align-items-center">
                 <div class="col-7">
-                    <input type="text" name="image_urls" class="form-control form-control-sm" placeholder="URL รูปภาพ">
+                    <input type="text" name="image_urls" class="form-control form-control-sm" placeholder="วาง URL ลิงก์รูปภาพ">
                 </div>
                 <div class="col-4">
-                    <input type="text" name="image_captions" class="form-control form-control-sm" placeholder="คำบรรยาย (ไม่บังคับ)">
+                    <input type="text" name="image_captions" class="form-control form-control-sm" placeholder="คำบรรยายภาพ (ไม่บังคับ)">
                 </div>
-                <div class="col-1">
+                <div class="col-1 text-center">
                     <button type="button" class="btn btn-outline-danger btn-sm py-0" onclick="removeRow(this)">
                         <i class="bi bi-x"></i>
                     </button>
                 </div>
             </div>
         </div>
-        <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="addImageRow()">
-            <i class="bi bi-plus me-1"></i>เพิ่มรูปภาพ
-        </button>
 
-        <!-- พิกัด -->
-        <hr>
-        <h6 class="fw-semibold mb-1"><i class="bi bi-pin-map me-1"></i>พิกัดแผนที่
-            <span class="text-muted fw-normal small">(ไม่บังคับ)</span>
-        </h6>
+        <!-- พิกัดแผนที่ -->
+        <hr class="my-4 text-muted">
+        <div class="mb-2">
+            <h6 class="fw-semibold mb-0"><i class="bi bi-pin-map-fill me-1 text-danger"></i>พิกัดแผนที่</h6>
+            <small class="text-muted">คลิกบนแผนที่หรือลากหมุดเพื่อเลือกตำแหน่งพิกัด</small>
+        </div>
+
         <div class="row g-2 mb-2">
             <div class="col-md-5">
-                <label class="form-label small">Latitude (ละติจูด)</label>
+                <label class="form-label small text-muted">Latitude (ละติจูด)</label>
                 <input type="text" name="latitude" id="lat-input" class="form-control form-control-sm"
                        placeholder="เช่น 15.244800" oninput="updateMapFromInput()">
             </div>
             <div class="col-md-5">
-                <label class="form-label small">Longitude (ลองจิจูด)</label>
+                <label class="form-label small text-muted">Longitude (ลองจิจูด)</label>
                 <input type="text" name="longitude" id="lng-input" class="form-control form-control-sm"
                        placeholder="เช่น 104.847300" oninput="updateMapFromInput()">
             </div>
             <div class="col-md-2 d-flex align-items-end">
-                <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="getMyLocation()" title="ตำแหน่งปัจจุบัน">
-                    <i class="bi bi-crosshair"></i>
+                <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="getMyLocation()" title="ใช้ตำแหน่งปัจจุบันของคุณ">
+                    <i class="bi bi-crosshair me-1"></i>พิกัดฉัน
                 </button>
             </div>
         </div>
-        <div class="input-group input-group-sm mb-2">
-            <span class="input-group-text"><i class="bi bi-search"></i></span>
-            <input type="text" id="map-search" class="form-control" placeholder="ค้นหาตำแหน่งบนแผนที่...">
-            <button type="button" class="btn btn-outline-primary" onclick="searchOnMap()">ค้นหา</button>
-        </div>
-        <div id="add-map" style="height:300px;border-radius:10px;z-index:0;" class="shadow-sm mb-1"></div>
-        <p class="text-muted small"><i class="bi bi-hand-index me-1"></i>กดบนแผนที่หรือลากหมุดเพื่อเลือกตำแหน่ง</p>
 
-        <div class="mt-3 d-flex gap-2">
-            <button type="submit" class="btn btn-success"><i class="bi bi-check-circle me-1"></i>บันทึก</button>
-            <a href="{{ url_for('places.list_places') }}" class="btn btn-outline-secondary">ยกเลิก</a>
+        <div class="input-group input-group-sm mb-2">
+            <span class="input-group-text bg-light"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" id="map-search" class="form-control" placeholder="ค้นหาชื่อตำบล อำเภอ หรือสถานที่บนแผนที่...">
+            <button type="button" class="btn btn-outline-secondary" onclick="searchOnMap()">ค้นหา</button>
+        </div>
+
+        <div id="add-map" style="height:280px;border-radius:10px;z-index:0;" class="shadow-sm mb-3"></div>
+
+        <div class="d-flex gap-2 justify-content-end pt-2">
+            <a href="{{ url_for('places.list_places') }}" class="btn btn-light btn-sm px-3">ยกเลิก</a>
+            <button type="submit" class="btn btn-primary btn-sm px-4 fw-semibold">
+                <i class="bi bi-check-circle me-1"></i>บันทึกสถานที่
+            </button>
         </div>
     </form>
 </div>
