@@ -902,8 +902,8 @@
                         <button class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="toggleGoogleMap()" style="font-size:.74rem;" title="ย่อ/ขยายแผนที่">
                             <i class="bi bi-arrows-expand" id="gmap-icon"></i>
                         </button>
-                        <a href="https://www.google.com/maps/dir/?api=1&destination={{ place.latitude }},{{ place.longitude }}"
-                           target="_blank" class="btn btn-primary btn-sm py-0 px-2 fw-medium" style="font-size:.74rem;">
+                        <a href="https://maps.google.com/?daddr={{ place.latitude }},{{ place.longitude }}"
+                           target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm py-0 px-2 fw-medium" style="font-size:.74rem;">
                             <i class="bi bi-compass me-1"></i>เปิดนำทาง
                         </a>
                     </div>
@@ -927,9 +927,9 @@
                     <small class="text-muted" style="font-size:0.75rem;">
                         <i class="bi bi-pin-map me-1"></i>{{ place.latitude }}, {{ place.longitude }}
                     </small>
-                    <a href="https://www.google.com/maps/search/?api=1&query={{ place.latitude }},{{ place.longitude }}"
-                       target="_blank" class="text-decoration-none small text-primary" style="font-size:0.75rem;">
-                        ดูบน Google Maps ใหญ่ <i class="bi bi-box-arrow-up-right"></i>
+                    <a href="https://maps.google.com/?q={{ place.latitude }},{{ place.longitude }}"
+                       target="_blank" rel="noopener noreferrer" class="text-primary text-decoration-none" style="font-size:0.75rem;">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>ดูบน Google Maps ใหญ่
                     </a>
                 </div>
             </div>
