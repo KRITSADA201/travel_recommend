@@ -2,7 +2,7 @@ import math
 from flask import Blueprint, render_template, redirect, url_for, request, jsonify, abort
 from flask_login import login_required, current_user
 from extensions import db
-from models import Place, PlaceImage, Category, Review, Favorite
+from models import Place, PlaceImage, Category, Review, ReviewReply, Favorite
 
 places = Blueprint('places', __name__)
 
@@ -39,6 +39,12 @@ def home():
                            avg_ratings=_avg_ratings(all_places),
                            favorites=_favorites(),
                            categories=categories)
+
+
+# ── เอกสารบทที่ 3 (System Analysis & Design) ─────────────────────────────────
+@places.route('/chapter3')
+def chapter3():
+    return render_template('docs/chapter3.html')
 
 
 # ── List + Search ─────────────────────────────────────────────────────────────
@@ -84,16 +90,35 @@ def detail(id):
 
     if request.method == 'POST':
         if not current_user.is_authenticated:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.args.get('format') == 'json':
+                return jsonify({'success': False, 'error': 'unauthenticated'}), 401
             return redirect(url_for('auth.login'))
-        if not user_reviewed:
-            comment = request.form.get('comment','').strip()
-            rating_raw = request.form.get('rating','').strip()
-            # ต้องมีอย่างน้อย comment หรือ rating
-            if comment or rating_raw:
-                r = Review(comment=comment or '-',
-                           rating=int(rating_raw) if rating_raw else 0,
-                           user_id=current_user.id, place_id=id)
-                db.session.add(r); db.session.commit()
+
+        comment = request.form.get('comment','').strip()
+        rating_raw = request.form.get('rating','').strip()
+        # ต้องมีอย่างน้อย comment หรือ rating
+        if comment or rating_raw:
+            r = Review(comment=comment or '-',
+                       rating=int(rating_raw) if rating_raw else 0,
+                       user_id=current_user.id, place_id=id)
+            db.session.add(r)
+            db.session.commit()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.args.get('format') == 'json':
+                return jsonify({
+                    'success': True,
+                    'review': {
+                        'id': r.id,
+                        'comment': r.comment,
+                        'rating': r.rating,
+                        'username': current_user.username,
+                        'is_admin': current_user.is_admin,
+                        'user_id': current_user.id
+                    },
+                    'avg_rating': place.avg_rating,
+                    'review_count': len(place.reviews)
+                })
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.args.get('format') == 'json':
+            return jsonify({'success': False, 'error': 'empty_comment'})
         return redirect(url_for('places.detail', id=id))
 
     # หาสถานที่ใกล้เคียง (ใช้ Haversine formula)
@@ -247,15 +272,74 @@ def my_favorites():
 
 
 # ── Review delete ─────────────────────────────────────────────────────────────
-@places.route('/review/<int:id>/delete')
+@places.route('/review/<int:id>/delete', methods=['GET', 'POST'])
 @login_required
 def delete_review(id):
     r = Review.query.get_or_404(id)
     if r.user_id != current_user.id and not current_user.is_admin:
         abort(403)
     place_id = r.place_id
-    db.session.delete(r); db.session.commit()
+    place = r.place
+    db.session.delete(r)
+    db.session.commit()
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.args.get('format') == 'json':
+        return jsonify({
+            'success': True,
+            'review_id': id,
+            'avg_rating': place.avg_rating,
+            'review_count': len(place.reviews)
+        })
     return redirect(url_for('places.detail', id=place_id))
+
+
+# ── Review Reply (Admin & User ตอบโต้กันได้) ──────────────────────────────────
+@places.route('/review/<int:review_id>/reply', methods=['POST'])
+@login_required
+def reply_review(review_id):
+    review = Review.query.get_or_404(review_id)
+    content = request.form.get('content', '').strip()
+    if content:
+        reply = ReviewReply(content=content, review_id=review.id, user_id=current_user.id)
+        db.session.add(reply)
+        db.session.commit()
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.args.get('format') == 'json':
+            return jsonify({
+                'success': True,
+                'reply': {
+                    'id': reply.id,
+                    'content': reply.content,
+                    'username': current_user.username,
+                    'is_admin': current_user.is_admin,
+                    'is_author': (reply.user_id == review.user_id),
+                    'user_id': current_user.id
+                },
+                'review_id': review.id,
+                'replies_count': len(review.replies)
+            })
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.args.get('format') == 'json':
+        return jsonify({'success': False, 'error': 'empty_content'})
+    return redirect(url_for('places.detail', id=review.place_id) + f'#review-{review.id}')
+
+
+@places.route('/review-reply/<int:id>/delete', methods=['GET', 'POST'])
+@login_required
+def delete_review_reply(id):
+    reply = ReviewReply.query.get_or_404(id)
+    if reply.user_id != current_user.id and not current_user.is_admin:
+        abort(403)
+    place_id = reply.review.place_id
+    review_id = reply.review_id
+    review = reply.review
+    db.session.delete(reply)
+    db.session.commit()
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.args.get('format') == 'json':
+        return jsonify({
+            'success': True,
+            'reply_id': id,
+            'review_id': review_id,
+            'replies_count': len(review.replies)
+        })
+    return redirect(url_for('places.detail', id=place_id) + f'#review-{review_id}')
 
 
 
@@ -428,20 +512,27 @@ def proxy_image():
         return '', 404
 
 
-# ── Tile Proxy (แก้ปัญหา OpenStreetMap บล็อก Referer) ──────────────────────
+# ── Tile Proxy (แก้ปัญหา OpenStreetMap บล็อก Referer พร้อมระบบ Fallback) ──
 @places.route('/tile/<int:z>/<int:x>/<int:y>.png')
 def tile_proxy(z, x, y):
-    """Flask ไปดึง tile จาก OSM แทนเบราว์เซอร์ → ไม่ถูกบล็อก"""
-    url = f'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-    try:
-        resp = http.get(url, headers={
-            'User-Agent': 'TravelApp/1.0 (educational project)',
-            'Referer': 'https://www.openstreetmap.org/',
-        }, timeout=10)
-        return Response(
-            resp.content,
-            content_type=resp.headers.get('Content-Type', 'image/png'),
-            headers={'Cache-Control': 'public, max-age=86400'}  # cache 1 วัน
-        )
-    except Exception:
-        return '', 404
+    """Flask ไปดึง tile จาก OSM / CartoDB แทนเบราว์เซอร์ → ไม่ถูกบล็อก และโหลดเร็ว 100%"""
+    sources = [
+        f'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        f'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        f'https://b.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'
+    ]
+    for url in sources:
+        try:
+            resp = http.get(url, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Referer': 'https://www.openstreetmap.org/',
+            }, timeout=6)
+            if resp.status_code == 200:
+                return Response(
+                    resp.content,
+                    content_type=resp.headers.get('Content-Type', 'image/png'),
+                    headers={'Cache-Control': 'public, max-age=86400'}  # cache 1 วัน
+                )
+        except Exception:
+            continue
+    return '', 404

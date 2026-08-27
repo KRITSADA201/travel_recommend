@@ -23,6 +23,119 @@
         height: 330px;
     }
 }
+
+/* YouTube Style Comments */
+.yt-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #fff;
+    background: #0d6efd;
+    flex-shrink: 0;
+    user-select: none;
+}
+.yt-avatar-sm {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.72rem;
+    color: #fff;
+    background: #475569;
+    flex-shrink: 0;
+    user-select: none;
+}
+.yt-avatar.admin, .yt-avatar-sm.admin {
+    background: #198754 !important;
+}
+.yt-input-underline {
+    border: none;
+    border-bottom: 1px solid #ced4da;
+    border-radius: 0;
+    padding: 6px 0;
+    background: transparent;
+    transition: border-color 0.2s ease;
+    resize: none;
+}
+.yt-input-underline:focus {
+    outline: none;
+    border-bottom: 2px solid #0d6efd;
+    box-shadow: none;
+    background: transparent;
+}
+.yt-author-tag {
+    font-weight: 600;
+    font-size: 0.84rem;
+    color: #0f0f0f;
+}
+.yt-badge-admin {
+    background: #198754;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+.yt-badge-creator {
+    background: #e2e8f0;
+    color: #334155;
+    font-size: 0.65rem;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 10px;
+}
+.yt-action-btn {
+    border: none;
+    background: transparent;
+    color: #606060;
+    font-size: 0.78rem;
+    font-weight: 500;
+    border-radius: 16px;
+    padding: 4px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    text-decoration: none;
+}
+.yt-action-btn:hover {
+    background-color: #f2f2f2;
+    color: #0f0f0f;
+}
+.yt-toggle-replies {
+    border: none;
+    background: transparent;
+    color: #065fd4;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 18px;
+    padding: 5px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    text-decoration: none;
+}
+.yt-toggle-replies:hover {
+    background-color: #def1ff;
+    color: #065fd4;
+}
+.yt-toggle-replies i {
+    transition: transform 0.2s ease;
+}
 </style>
 
 <div class="row g-3 g-md-4">
@@ -190,93 +303,172 @@
         </div>
         {% endif %}
 
-        <!-- รีวิว -->
-        <h5 class="fw-semibold mb-3"><i class="bi bi-chat-left-text me-2"></i>รีวิวทั้งหมด</h5>
+        <!-- ความคิดเห็น / รีวิว (YouTube Style) -->
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <h5 class="fw-bold mb-0">
+                ความคิดเห็น
+                <span class="text-muted fw-normal fs-6" id="total-comments-count">({{ reviews|length }})</span>
+            </h5>
+        </div>
 
-        {% if current_user.is_authenticated and not user_reviewed %}
-        <div class="card p-3 mb-4 shadow-sm border-0">
-            <h6 class="fw-semibold"><i class="bi bi-pencil-square me-1"></i>เขียนรีวิวของคุณ</h6>
-            <form method="POST" onsubmit="return submitReview()">
-                <!-- Star Picker -->
-                <div class="mb-2">
-                    <label class="form-label small">คะแนน <span class="text-muted">(ไม่บังคับ)</span></label>
-                    <div class="d-flex align-items-center gap-1" id="star-picker">
-                        <i class="bi bi-star fs-4 star-btn" data-val="1" style="cursor:pointer;color:#ccc;transition:color .1s;"></i>
-                        <i class="bi bi-star fs-4 star-btn" data-val="2" style="cursor:pointer;color:#ccc;transition:color .1s;"></i>
-                        <i class="bi bi-star fs-4 star-btn" data-val="3" style="cursor:pointer;color:#ccc;transition:color .1s;"></i>
-                        <i class="bi bi-star fs-4 star-btn" data-val="4" style="cursor:pointer;color:#ccc;transition:color .1s;"></i>
-                        <i class="bi bi-star fs-4 star-btn" data-val="5" style="cursor:pointer;color:#ccc;transition:color .1s;"></i>
-                        <span id="star-label" class="text-muted small ms-2">ไม่ให้คะแนน</span>
+        <div id="main-review-container">
+        {% if current_user.is_authenticated %}
+        <!-- YouTube Style Comment Input Form -->
+        <div class="d-flex gap-3 mb-4" id="main-review-input-box">
+            <div class="yt-avatar {% if current_user.is_admin %}admin{% endif %}">
+                {{ current_user.username[0]|upper }}
+            </div>
+            <div class="flex-grow-1">
+                <form id="main-review-form" onsubmit="return handleReviewSubmit(event)">
+                    <!-- Star Rating -->
+                    <div class="d-flex align-items-center gap-1 mb-1" id="star-picker">
+                        <i class="bi bi-star fs-5 star-btn" data-val="1" style="cursor:pointer;color:#ccc;transition:color .1s;"></i>
+                        <i class="bi bi-star fs-5 star-btn" data-val="2" style="cursor:pointer;color:#ccc;transition:color .1s;"></i>
+                        <i class="bi bi-star fs-5 star-btn" data-val="3" style="cursor:pointer;color:#ccc;transition:color .1s;"></i>
+                        <i class="bi bi-star fs-5 star-btn" data-val="4" style="cursor:pointer;color:#ccc;transition:color .1s;"></i>
+                        <i class="bi bi-star fs-5 star-btn" data-val="5" style="cursor:pointer;color:#ccc;transition:color .1s;"></i>
+                        <span id="star-label" class="text-muted small ms-2" style="font-size:.8rem;">ให้คะแนนสถานที่</span>
                     </div>
                     <input type="hidden" name="rating" id="rating-input" value="">
-                </div>
-                <!-- Comment (ไม่บังคับ) -->
-                <div class="mb-2">
-                    <label class="form-label small">ความคิดเห็น <span class="text-muted">(ไม่บังคับ)</span></label>
-                    <textarea name="comment" id="comment-input" class="form-control form-control-sm" rows="3"
-                              placeholder="แสดงความคิดเห็น..."></textarea>
-                </div>
-                <div id="review-error" class="text-danger small mb-2 d-none">กรุณาให้คะแนนหรือเขียนความคิดเห็นอย่างน้อย 1 อย่าง</div>
-                <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-send me-1"></i>ส่งรีวิว</button>
-            </form>
-        </div>
-        <script>
-        (function(){
-            const stars = document.querySelectorAll('.star-btn');
-            const input = document.getElementById('rating-input');
-            const label = document.getElementById('star-label');
-            const labels = ['','1 — ไม่ดี','2 — พอได้','3 — ปานกลาง','4 — ดี','5 — ดีมาก'];
-            let selected = 0;
-            function paint(upTo){
-                stars.forEach((s,i)=>{
-                    s.className = 'fs-4 star-btn bi ' + (i < upTo ? 'bi-star-fill' : 'bi-star');
-                    s.style.color = i < upTo ? '#ffc107' : '#ccc';
-                });
-            }
-            stars.forEach(s=>{
-                const v = parseInt(s.dataset.val);
-                s.addEventListener('mouseenter',()=>{ paint(v); label.textContent = labels[v]; });
-                s.addEventListener('mouseleave',()=>{ paint(selected); label.textContent = selected ? labels[selected] : 'ไม่ให้คะแนน'; });
-                s.addEventListener('click',()=>{ selected=v; input.value=v; paint(v); label.textContent=labels[v]; });
-            });
-        })();
-        function submitReview(){
-            const rating = document.getElementById('rating-input').value;
-            const comment = document.getElementById('comment-input').value.trim();
-            if(!rating && !comment){
-                document.getElementById('review-error').classList.remove('d-none');
-                return false;
-            }
-            return true;
-        }
-        </script>
-        {% elif not current_user.is_authenticated %}
-        <div class="alert alert-info small">
-            <i class="bi bi-info-circle me-1"></i><a href="{{ url_for('auth.login') }}">เข้าสู่ระบบ</a> เพื่อเขียนรีวิว
+
+                    <input type="text" name="comment" id="comment-input" class="form-control yt-input-underline"
+                           placeholder="เพิ่มความคิดเห็นสาธารณะในฐานะ @{{ current_user.username }}..." autocomplete="off">
+
+                    <div id="review-error" class="text-danger small mt-1 d-none">กรุณาให้คะแนนหรือพิมพ์ความคิดเห็นก่อนส่ง</div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-2" id="review-actions">
+                        <button type="button" class="btn btn-light btn-sm rounded-pill px-3"
+                                style="font-size:.82rem;" onclick="resetReviewForm()">ยกเลิก</button>
+                        <button type="submit" id="btn-submit-review" class="btn btn-primary btn-sm rounded-pill px-3 fw-semibold"
+                                style="font-size:.82rem;">แสดงความคิดเห็น</button>
+                    </div>
+                </form>
+            </div>
         </div>
         {% else %}
-        <div class="alert alert-secondary small">
-            <i class="bi bi-check-circle me-1"></i>คุณรีวิวสถานที่นี้แล้ว
+        <div class="d-flex align-items-center gap-3 p-3 bg-light rounded-4 mb-4">
+            <div class="yt-avatar bg-secondary">
+                <i class="bi bi-person"></i>
+            </div>
+            <div class="flex-grow-1">
+                <a href="{{ url_for('auth.login') }}" class="text-decoration-none fw-semibold">เข้าสู่ระบบ</a> เพื่อแสดงความคิดเห็นและตอบกลับ
+            </div>
         </div>
         {% endif %}
+        </div>
 
+        <!-- YouTube Comment List -->
+        <div class="yt-comments-list" id="yt-comments-container">
         {% for r in reviews %}
-        <div class="card mb-2 border-0 shadow-sm">
-            <div class="card-body py-2 px-3">
-                <div class="d-flex justify-content-between align-items-center">
-                    <strong style="font-size:.85rem;"><i class="bi bi-person-circle me-1"></i>{{ r.user.username }}</strong>
-                    <span>
-                        {% for i in range(r.rating) %}<i class="bi bi-star-fill text-warning" style="font-size:.75rem;"></i>{% endfor %}
-                        {% for i in range(5 - r.rating) %}<i class="bi bi-star text-secondary" style="font-size:.75rem;"></i>{% endfor %}
-                        {% if current_user.is_authenticated and (r.user_id == current_user.id or current_user.is_admin) %}
-                        <button type="button" class="btn btn-outline-danger btn-sm ms-2 py-0" style="font-size:.72rem;"
-                                data-bs-toggle="modal" data-bs-target="#deleteReviewModal{{ r.id }}">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                        {% endif %}
+        <div class="d-flex gap-3 mb-4" id="review-{{ r.id }}">
+            <!-- Avatar -->
+            <div class="yt-avatar {% if r.user.is_admin %}admin{% endif %}">
+                {{ r.user.username[0]|upper }}
+            </div>
+
+            <!-- Content Body -->
+            <div class="flex-grow-1">
+                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                    <span class="yt-author-tag">@{{ r.user.username }}</span>
+                    {% if r.user.is_admin %}
+                    <span class="yt-badge-admin"><i class="bi bi-shield-check"></i>Admin</span>
+                    {% endif %}
+                    <span class="ms-1">
+                        {% for i in range(r.rating) %}<i class="bi bi-star-fill text-warning" style="font-size:.72rem;"></i>{% endfor %}
+                        {% for i in range(5 - r.rating) %}<i class="bi bi-star text-secondary" style="font-size:.72rem;"></i>{% endfor %}
                     </span>
                 </div>
-                <p class="mb-0 mt-1 text-secondary" style="font-size:.82rem;">{{ r.comment }}</p>
+
+                <div class="text-dark mb-2" style="font-size:.88rem;line-height:1.45;word-break:break-word;">{{ r.comment }}</div>
+
+                <!-- Action Row -->
+                <div class="d-flex align-items-center gap-1 mb-2">
+                    <button type="button" class="yt-action-btn" onclick="toggleReplyForm({{ r.id }})">
+                        <i class="bi bi-reply-fill"></i>ตอบกลับ
+                    </button>
+
+                    {% if current_user.is_authenticated and (r.user_id == current_user.id or current_user.is_admin) %}
+                    <button type="button" class="yt-action-btn text-danger"
+                            data-bs-toggle="modal" data-bs-target="#deleteReviewModal{{ r.id }}" title="ลบความคิดเห็น">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    {% endif %}
+                </div>
+
+                <!-- Inline Reply Form (YouTube Style) -->
+                {% if current_user.is_authenticated %}
+                <div id="reply-form-{{ r.id }}" class="d-none mt-2 mb-3">
+                    <form onsubmit="return handleReplySubmit(event, {{ r.id }})">
+                        <div class="d-flex gap-2 align-items-start">
+                            <div class="yt-avatar-sm {% if current_user.is_admin %}admin{% endif %}">
+                                {{ current_user.username[0]|upper }}
+                            </div>
+                            <div class="flex-grow-1">
+                                <input type="text" name="content" class="form-control form-control-sm yt-input-underline"
+                                       placeholder="ตอบกลับเป็น @{{ current_user.username }}..." required autocomplete="off">
+                                <div class="d-flex justify-content-end gap-2 mt-2">
+                                    <button type="button" class="btn btn-light btn-sm rounded-pill px-3 py-1"
+                                            style="font-size:.78rem;" onclick="toggleReplyForm({{ r.id }})">ยกเลิก</button>
+                                    <button type="submit" class="btn btn-primary btn-sm rounded-pill px-3 py-1 fw-semibold"
+                                            style="font-size:.78rem;">ตอบกลับ</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                {% else %}
+                <div id="reply-form-{{ r.id }}" class="d-none mt-2 mb-3">
+                    <div class="alert alert-light border py-1 px-3 small mb-0 rounded-3">
+                        <a href="{{ url_for('auth.login') }}">เข้าสู่ระบบ</a> เพื่อตอบกลับ
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Collapsible Replies (YouTube Style) -->
+                <div class="mt-1" id="replies-wrapper-{{ r.id }}">
+                    {% if r.replies %}
+                    <button type="button" class="yt-toggle-replies" id="btn-toggle-replies-{{ r.id }}" onclick="toggleRepliesList({{ r.id }})">
+                        <i class="bi bi-caret-down-fill" id="caret-replies-{{ r.id }}"></i>
+                        <span id="label-replies-{{ r.id }}">การตอบกลับ {{ r.replies|length }} รายการ</span>
+                    </button>
+                    {% endif %}
+
+                    <div id="replies-list-{{ r.id }}" class="{% if not r.replies %}d-none{% else %}d-none{% endif %} mt-3 ps-2">
+                        {% for reply in r.replies %}
+                        <div class="d-flex gap-2 mb-3" id="reply-{{ reply.id }}">
+                            <div class="yt-avatar-sm {% if reply.user.is_admin %}admin{% endif %}">
+                                {{ reply.user.username[0]|upper }}
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                    <span class="yt-author-tag" style="font-size:.8rem;">@{{ reply.user.username }}</span>
+                                    {% if reply.user.is_admin %}
+                                    <span class="yt-badge-admin"><i class="bi bi-shield-check"></i>Admin</span>
+                                    {% elif reply.user_id == r.user_id %}
+                                    <span class="yt-badge-creator">ผู้เขียนรีวิว</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-dark" style="font-size:.84rem;line-height:1.4;word-break:break-word;">{{ reply.content }}</div>
+
+                                <!-- Action for reply -->
+                                <div class="d-flex align-items-center gap-2 mt-1">
+                                    <button type="button" class="yt-action-btn py-0 px-1" style="font-size:.74rem;"
+                                            onclick="openReplyToUser({{ r.id }}, '{{ reply.user.username }}')">
+                                        ตอบกลับ
+                                    </button>
+                                    {% if current_user.is_authenticated and (reply.user_id == current_user.id or current_user.is_admin) %}
+                                    <button type="button" onclick="handleDeleteReply(event, {{ reply.id }}, {{ r.id }})"
+                                            class="yt-action-btn py-0 px-1 text-danger" style="font-size:.74rem;" title="ลบข้อความ">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -288,27 +480,413 @@
                     <div class="modal-header">
                         <h5 class="modal-title">
                             <i class="bi bi-trash text-danger me-2"></i>
-                            ลบรีวิว
+                            ลบความคิดเห็น
                         </h5>
                         <button class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="mb-2">คุณต้องการลบรีวิวของ "<strong>{{ r.user.username }}</strong>" ใช่หรือไม่?</p>
+                        <p class="mb-2">คุณต้องการลบความคิดเห็นของ "<strong>@{{ r.user.username }}</strong>" ใช่หรือไม่?</p>
                         <small class="text-muted">การลบนี้ไม่สามารถย้อนกลับได้</small>
                     </div>
                     <div class="modal-footer">
                         <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-                        <a href="{{ url_for('places.delete_review', id=r.id) }}" class="btn btn-danger">
-                            <i class="bi bi-trash me-1"></i>ลบรีวิว
-                        </a>
+                        <button type="button" class="btn btn-danger" onclick="handleDeleteReview({{ r.id }})">
+                            <i class="bi bi-trash me-1"></i>ลบ
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
         {% endif %}
+
         {% else %}
-        <p class="text-muted small"><i class="bi bi-chat-dots me-1"></i>ยังไม่มีรีวิว เป็นคนแรกที่รีวิวสถานที่นี้!</p>
+        <div class="text-center py-4 text-muted" id="no-comments-msg">
+            <i class="bi bi-chat-left-dots" style="font-size:2.2rem;"></i>
+            <p class="mt-2 mb-0" style="font-size:.88rem;">ยังไม่มีความคิดเห็น เป็นคนแรกที่แสดงความคิดเห็น!</p>
+        </div>
         {% endfor %}
+        </div>
+
+        <script>
+        /* Star picker logic */
+        (function(){
+            const stars = document.querySelectorAll('#star-picker .star-btn');
+            const input = document.getElementById('rating-input');
+            const label = document.getElementById('star-label');
+            const labels = ['','1 — ไม่ดี','2 — พอใช้','3 — ปานกลาง','4 — ดี','5 — ดีมาก'];
+            let selected = 0;
+            function paint(upTo){
+                stars.forEach((s,i)=>{
+                    s.className = 'fs-5 star-btn bi ' + (i < upTo ? 'bi-star-fill' : 'bi-star');
+                    s.style.color = i < upTo ? '#ffc107' : '#ccc';
+                });
+            }
+            stars.forEach(s=>{
+                const v = parseInt(s.dataset.val);
+                s.addEventListener('mouseenter',()=>{ paint(v); if(label) label.textContent = labels[v]; });
+                s.addEventListener('mouseleave',()=>{ paint(selected); if(label) label.textContent = selected ? labels[selected] : 'ให้คะแนนสถานที่'; });
+                s.addEventListener('click',()=>{ selected=v; if(input) input.value=v; paint(v); if(label) label.textContent=labels[v]; });
+            });
+            window.resetReviewForm = function(){
+                selected = 0;
+                if(input) input.value = '';
+                paint(0);
+                if(label) label.textContent = 'ให้คะแนนสถานที่';
+                const err = document.getElementById('review-error');
+                if(err) err.classList.add('d-none');
+                const commentInp = document.getElementById('comment-input');
+                if(commentInp) commentInp.value = '';
+            };
+        })();
+
+        /* Toggle Reply Form */
+        function toggleReplyForm(reviewId) {
+            const form = document.getElementById('reply-form-' + reviewId);
+            if (form) {
+                form.classList.toggle('d-none');
+                const input = form.querySelector('input[name="content"]');
+                if (input && !form.classList.contains('d-none')) {
+                    input.focus();
+                }
+            }
+        }
+
+        /* Open reply with @username tag */
+        function openReplyToUser(reviewId, username) {
+            const form = document.getElementById('reply-form-' + reviewId);
+            if (form) {
+                form.classList.remove('d-none');
+                const input = form.querySelector('input[name="content"]');
+                if (input) {
+                    input.value = '@' + username + ' ';
+                    input.focus();
+                }
+            }
+        }
+
+        /* Toggle replies list open/close */
+        function toggleRepliesList(reviewId) {
+            const list = document.getElementById('replies-list-' + reviewId);
+            const caret = document.getElementById('caret-replies-' + reviewId) || document.querySelector('#btn-toggle-replies-' + reviewId + ' i');
+            if (list) {
+                list.classList.toggle('d-none');
+                if (caret) {
+                    caret.className = list.classList.contains('d-none') ? 'bi bi-caret-down-fill' : 'bi bi-caret-up-fill';
+                }
+            }
+        }
+
+        /* AJAX: Submit New Review without scrolling */
+        function handleReviewSubmit(e) {
+            if (e) e.preventDefault();
+            const ratingInput = document.getElementById('rating-input');
+            const commentInput = document.getElementById('comment-input');
+            const errorDiv = document.getElementById('review-error');
+            const rating = ratingInput ? ratingInput.value : '';
+            const comment = commentInput ? commentInput.value.trim() : '';
+
+            if (!rating && !comment) {
+                if (errorDiv) errorDiv.classList.remove('d-none');
+                return false;
+            }
+            if (errorDiv) errorDiv.classList.add('d-none');
+
+            const submitBtn = document.getElementById('btn-submit-review');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังส่ง...';
+            }
+
+            const formData = new FormData();
+            formData.append('rating', rating);
+            formData.append('comment', comment);
+
+            fetch(window.location.pathname + '?format=json', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.review) {
+                    const noMsg = document.getElementById('no-comments-msg');
+                    if (noMsg) noMsg.remove();
+
+                    // Generate stars HTML
+                    let starsHtml = '';
+                    for (let i = 0; i < data.review.rating; i++) {
+                        starsHtml += '<i class="bi bi-star-fill text-warning" style="font-size:.72rem;"></i>';
+                    }
+                    for (let i = 0; i < (5 - data.review.rating); i++) {
+                        starsHtml += '<i class="bi bi-star text-secondary" style="font-size:.72rem;"></i>';
+                    }
+
+                    const adminBadge = data.review.is_admin ? '<span class="yt-badge-admin"><i class="bi bi-shield-check"></i>Admin</span>' : '';
+                    const initial = (data.review.username || 'U')[0].toUpperCase();
+                    const adminClass = data.review.is_admin ? 'admin' : '';
+
+                    const newCard = document.createElement('div');
+                    newCard.className = 'd-flex gap-3 mb-4';
+                    newCard.id = 'review-' + data.review.id;
+                    newCard.innerHTML = `
+                        <div class="yt-avatar ${adminClass}">
+                            ${initial}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                <span class="yt-author-tag">@${data.review.username}</span>
+                                ${adminBadge}
+                                <span class="ms-1">${starsHtml}</span>
+                            </div>
+                            <div class="text-dark mb-2" style="font-size:.88rem;line-height:1.45;word-break:break-word;">${data.review.comment}</div>
+                            <div class="d-flex align-items-center gap-1 mb-2">
+                                <button type="button" class="yt-action-btn" onclick="toggleReplyForm(${data.review.id})">
+                                    <i class="bi bi-reply-fill"></i>ตอบกลับ
+                                </button>
+                                <button type="button" class="yt-action-btn text-danger" onclick="handleDeleteReview(${data.review.id})" title="ลบความคิดเห็น">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            <div id="reply-form-${data.review.id}" class="d-none mt-2 mb-3">
+                                <form onsubmit="return handleReplySubmit(event, ${data.review.id})">
+                                    <div class="d-flex gap-2 align-items-start">
+                                        <div class="yt-avatar-sm ${adminClass}">
+                                            ${initial}
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <input type="text" name="content" class="form-control form-control-sm yt-input-underline"
+                                                   placeholder="ตอบกลับเป็น @${data.review.username}..." required autocomplete="off">
+                                            <div class="d-flex justify-content-end gap-2 mt-2">
+                                                <button type="button" class="btn btn-light btn-sm rounded-pill px-3 py-1"
+                                                        style="font-size:.78rem;" onclick="toggleReplyForm(${data.review.id})">ยกเลิก</button>
+                                                <button type="submit" class="btn btn-primary btn-sm rounded-pill px-3 py-1 fw-semibold"
+                                                        style="font-size:.78rem;">ตอบกลับ</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="mt-1" id="replies-wrapper-${data.review.id}">
+                                <div id="replies-list-${data.review.id}" class="d-none mt-3 ps-2"></div>
+                            </div>
+                        </div>
+                    `;
+
+                    const container = document.getElementById('yt-comments-container');
+                    if (container) {
+                        container.prepend(newCard);
+                    }
+
+                    // Update total comments counter
+                    const countEl = document.getElementById('total-comments-count');
+                    if (countEl && data.review_count !== undefined) {
+                        countEl.textContent = '(' + data.review_count + ')';
+                    }
+
+                    // Reset form and keep it open for more comments (YouTube Style)
+                    resetReviewForm();
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'แสดงความคิดเห็น';
+                    }
+                }
+            })
+            .catch(() => {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'แสดงความคิดเห็น';
+                }
+            });
+
+            return false;
+        }
+
+        /* AJAX: Submit Reply without scrolling */
+        function handleReplySubmit(e, reviewId) {
+            if (e) e.preventDefault();
+            const form = document.querySelector('#reply-form-' + reviewId + ' form');
+            if (!form) return false;
+            const input = form.querySelector('input[name="content"]');
+            const content = input ? input.value.trim() : '';
+            if (!content) return false;
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>ส่ง...';
+            }
+
+            const formData = new FormData();
+            formData.append('content', content);
+
+            fetch('/review/' + reviewId + '/reply?format=json', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'ตอบกลับ';
+                }
+                if (data.success && data.reply) {
+                    if (input) input.value = '';
+                    toggleReplyForm(reviewId);
+
+                    const adminBadge = data.reply.is_admin ? '<span class="yt-badge-admin"><i class="bi bi-shield-check"></i>Admin</span>' : (data.reply.is_author ? '<span class="yt-badge-creator">ผู้เขียนรีวิว</span>' : '');
+                    const initial = (data.reply.username || 'U')[0].toUpperCase();
+                    const adminClass = data.reply.is_admin ? 'admin' : '';
+
+                    const replyItem = document.createElement('div');
+                    replyItem.className = 'd-flex gap-2 mb-3';
+                    replyItem.id = 'reply-' + data.reply.id;
+                    replyItem.innerHTML = `
+                        <div class="yt-avatar-sm ${adminClass}">
+                            ${initial}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                <span class="yt-author-tag" style="font-size:.8rem;">@${data.reply.username}</span>
+                                ${adminBadge}
+                            </div>
+                            <div class="text-dark" style="font-size:.84rem;line-height:1.4;word-break:break-word;">${data.reply.content}</div>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <button type="button" class="yt-action-btn py-0 px-1" style="font-size:.74rem;"
+                                        onclick="openReplyToUser(${reviewId}, '${data.reply.username}')">
+                                    ตอบกลับ
+                                </button>
+                                <button type="button" onclick="handleDeleteReply(event, ${data.reply.id}, ${reviewId})"
+                                        class="yt-action-btn py-0 px-1 text-danger" style="font-size:.74rem;" title="ลบข้อความ">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+
+                    let repliesList = document.getElementById('replies-list-' + reviewId);
+                    let repliesWrapper = document.getElementById('replies-wrapper-' + reviewId);
+
+                    if (!repliesList && repliesWrapper) {
+                        repliesList = document.createElement('div');
+                        repliesList.id = 'replies-list-' + reviewId;
+                        repliesList.className = 'mt-3 ps-2';
+                        repliesWrapper.appendChild(repliesList);
+                    }
+
+                    if (repliesList) {
+                        repliesList.appendChild(replyItem);
+                        repliesList.classList.remove('d-none');
+                    }
+
+                    // Update or create Toggle button
+                    let toggleBtn = document.getElementById('btn-toggle-replies-' + reviewId);
+                    if (!toggleBtn && repliesWrapper) {
+                        toggleBtn = document.createElement('button');
+                        toggleBtn.type = 'button';
+                        toggleBtn.className = 'yt-toggle-replies';
+                        toggleBtn.id = 'btn-toggle-replies-' + reviewId;
+                        toggleBtn.onclick = function(){ toggleRepliesList(reviewId); };
+                        toggleBtn.innerHTML = `
+                            <i class="bi bi-caret-up-fill" id="caret-replies-${reviewId}"></i>
+                            <span id="label-replies-${reviewId}">การตอบกลับ ${data.replies_count} รายการ</span>
+                        `;
+                        repliesWrapper.prepend(toggleBtn);
+                    } else if (toggleBtn) {
+                        const label = document.getElementById('label-replies-' + reviewId);
+                        const caret = document.getElementById('caret-replies-' + reviewId) || toggleBtn.querySelector('i');
+                        if (label) label.textContent = 'การตอบกลับ ' + data.replies_count + ' รายการ';
+                        if (caret) caret.className = 'bi bi-caret-up-fill';
+                    }
+                }
+            })
+            .catch(() => {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'ตอบกลับ';
+                }
+            });
+
+            return false;
+        }
+
+        /* AJAX: Delete Review without scrolling */
+        function handleDeleteReview(reviewId) {
+            const modalEl = document.getElementById('deleteReviewModal' + reviewId);
+            if (modalEl) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            }
+
+            fetch('/review/' + reviewId + '/delete?format=json', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const reviewCard = document.getElementById('review-' + reviewId);
+                    if (reviewCard) {
+                        reviewCard.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        reviewCard.style.opacity = '0';
+                        reviewCard.style.transform = 'translateY(-10px)';
+                        setTimeout(() => {
+                            reviewCard.remove();
+                            const container = document.getElementById('yt-comments-container');
+                            if (container && container.children.length === 0) {
+                                container.innerHTML = `
+                                    <div class="text-center py-4 text-muted" id="no-comments-msg">
+                                        <i class="bi bi-chat-left-dots" style="font-size:2.2rem;"></i>
+                                        <p class="mt-2 mb-0" style="font-size:.88rem;">ยังไม่มีความคิดเห็น เป็นคนแรกที่แสดงความคิดเห็น!</p>
+                                    </div>
+                                `;
+                            }
+                        }, 300);
+                    }
+                    const countEl = document.getElementById('total-comments-count');
+                    if (countEl && data.review_count !== undefined) {
+                        countEl.textContent = '(' + data.review_count + ')';
+                    }
+                }
+            });
+        }
+
+        /* AJAX: Delete Reply without scrolling */
+        function handleDeleteReply(e, replyId, reviewId) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            if (!confirm('คุณต้องการลบข้อความตอบกลับนี้ใช่หรือไม่?')) return;
+
+            fetch('/review-reply/' + replyId + '/delete?format=json', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const replyCard = document.getElementById('reply-' + replyId);
+                    if (replyCard) {
+                        replyCard.style.transition = 'opacity 0.25s ease';
+                        replyCard.style.opacity = '0';
+                        setTimeout(() => {
+                            replyCard.remove();
+                            const label = document.getElementById('label-replies-' + reviewId);
+                            if (label) {
+                                if (data.replies_count > 0) {
+                                    label.textContent = 'การตอบกลับ ' + data.replies_count + ' รายการ';
+                                } else {
+                                    const toggleBtn = document.getElementById('btn-toggle-replies-' + reviewId);
+                                    if (toggleBtn) toggleBtn.remove();
+                                }
+                            }
+                        }, 250);
+                    }
+                }
+            });
+        }
+        </script>
     </div>
 
     <!-- Sidebar: แผนที่ + นำทาง -->

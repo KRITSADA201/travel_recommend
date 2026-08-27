@@ -67,6 +67,19 @@ class Review(db.Model):
     user_id  = db.Column(db.Integer, db.ForeignKey('user.id'),  nullable=False)
     place_id = db.Column(db.Integer, db.ForeignKey('place.id'), nullable=False)
 
+    replies  = db.relationship('ReviewReply', backref='review', lazy=True, cascade='all, delete-orphan', order_by='ReviewReply.id.asc()')
+
+
+class ReviewReply(db.Model):
+    """ตอบกลับรีวิว (Admin และ User ตอบโต้กันได้)"""
+    __tablename__ = 'review_reply'
+    id        = db.Column(db.Integer, primary_key=True)
+    content   = db.Column(db.Text,    nullable=False)
+    review_id = db.Column(db.Integer, db.ForeignKey('review.id'), nullable=False)
+    user_id   = db.Column(db.Integer, db.ForeignKey('user.id'),   nullable=False)
+
+    user      = db.relationship('User', backref=db.backref('review_replies', lazy=True))
+
 
 class Favorite(db.Model):
     __tablename__ = 'favorite'

@@ -55,6 +55,9 @@ def create_app():
 
         return url
 
+    with app.app_context():
+        db.create_all()
+
     return app
 
 
