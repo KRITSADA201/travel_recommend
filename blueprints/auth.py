@@ -166,6 +166,12 @@ def reset_password(token):
 
     return render_template('auth/reset_password.html', invalid=False, error=error, token=token)
 
+def _build_redirect_uri(endpoint):
+    """สร้าง redirect URI ที่ถูกต้องสำหรับทั้ง localhost และ Render"""
+    proto = request.headers.get('X-Forwarded-Proto', 'http')
+    host  = request.host
+    return f"{proto}://{host}/auth/{endpoint}/callback"
+
 
 # ── Google ──
 @auth.route('/google')
@@ -173,7 +179,10 @@ def google_login():
     state = secrets.token_urlsafe(16)
     session['oauth_state'] = state
     cfg = current_app.config
-    params = dict(client_id=cfg['GOOGLE_CLIENT_ID'], redirect_uri=cfg['GOOGLE_REDIRECT_URI'],
+    redirect_uri = _build_redirect_uri('google')
+    session['google_redirect_uri'] = redirect_uri   # เก็บไว้ใช้ใน callback
+    params = dict(client_id=cfg['GOOGLE_CLIENT_ID'],
+                  redirect_uri=redirect_uri,
                   response_type='code', scope='openid email profile', state=state)
     return redirect('https://accounts.google.com/o/oauth2/v2/auth?' + urlencode(params))
 
@@ -182,10 +191,11 @@ def google_callback():
     cfg  = current_app.config
     code = request.args.get('code')
     if not code: return redirect(url_for('auth.login'))
+    redirect_uri = session.get('google_redirect_uri') or _build_redirect_uri('google')
     tok  = http.post('https://oauth2.googleapis.com/token', data=dict(
         code=code, client_id=cfg['GOOGLE_CLIENT_ID'],
         client_secret=cfg['GOOGLE_CLIENT_SECRET'],
-        redirect_uri=cfg['GOOGLE_REDIRECT_URI'], grant_type='authorization_code')).json()
+        redirect_uri=redirect_uri, grant_type='authorization_code')).json()
     token = tok.get('access_token')
     if not token: return redirect(url_for('auth.login'))
     info  = http.get('https://www.googleapis.com/oauth2/v2/userinfo',
@@ -202,7 +212,10 @@ def facebook_login():
     state = secrets.token_urlsafe(16)
     session['oauth_state'] = state
     cfg = current_app.config
-    params = dict(client_id=cfg['FB_APP_ID'], redirect_uri=cfg['FB_REDIRECT_URI'],
+    redirect_uri = _build_redirect_uri('facebook')
+    session['fb_redirect_uri'] = redirect_uri       # เก็บไว้ใช้ใน callback
+    params = dict(client_id=cfg['FB_APP_ID'],
+                  redirect_uri=redirect_uri,
                   state=state, scope='email,public_profile')
     return redirect('https://www.facebook.com/v18.0/dialog/oauth?' + urlencode(params))
 
@@ -211,9 +224,10 @@ def facebook_callback():
     cfg  = current_app.config
     code = request.args.get('code')
     if not code: return redirect(url_for('auth.login'))
+    redirect_uri = session.get('fb_redirect_uri') or _build_redirect_uri('facebook')
     tok  = http.get('https://graph.facebook.com/v18.0/oauth/access_token', params=dict(
         client_id=cfg['FB_APP_ID'], client_secret=cfg['FB_APP_SECRET'],
-        redirect_uri=cfg['FB_REDIRECT_URI'], code=code)).json()
+        redirect_uri=redirect_uri, code=code)).json()
     token = tok.get('access_token')
     if not token: return redirect(url_for('auth.login'))
     info  = http.get('https://graph.facebook.com/me',
