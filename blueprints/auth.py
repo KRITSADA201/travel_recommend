@@ -172,30 +172,113 @@ def _get_google_redirect_uri():
         return f"https://{request.host}/auth/google/callback"
     return url_for('auth.google_callback', _external=True)
 
+def _get_facebook_redirect_uri():
+    if 'onrender.com' in request.host or request.headers.get('X-Forwarded-Proto') == 'https':
+        return f"https://{request.host}/auth/facebook/callback"
+    return url_for('auth.facebook_callback', _external=True)
 
-# ── Google OAuth (Instant 1-Click Login 100% ปลอดภัย ไม่โดน Google บล็อก) ──
+
+# ── Real Google OAuth (เด้งหน้าเลือกบัญชี Google จริงของแต่ละคน) ──
 @auth.route('/google')
 def google_login():
-    user = _get_or_create_user('Google_User', email='google.user@gmail.com')
-    login_user(user)
-    return redirect(url_for('places.home'))
+    cfg = current_app.config
+    client_id = cfg.get('GOOGLE_CLIENT_ID')
+    if not client_id or str(client_id).strip() == '' or str(client_id).lower() == 'none':
+        return redirect(url_for('auth.login', error='ยังไม่ได้ตั้งค่า GOOGLE_CLIENT_ID ในระบบ'))
+
+    state = secrets.token_urlsafe(16)
+    session['oauth_state'] = state
+    redirect_uri = _get_google_redirect_uri()
+    params = dict(
+        client_id=client_id,
+        redirect_uri=redirect_uri,
+        response_type='code',
+        scope='openid email profile',
+        state=state,
+        prompt='select_account'  # บังคับให้ Google เด้งหน้าต่างให้ผู้ใช้เลือกอีเมลจริงของตัวเอง
+    )
+    return redirect('https://accounts.google.com/o/oauth2/v2/auth?' + urlencode(params))
 
 @auth.route('/google/callback')
 def google_callback():
-    user = _get_or_create_user('Google_User', email='google.user@gmail.com')
-    login_user(user)
-    return redirect(url_for('places.home'))
+    cfg  = current_app.config
+    code = request.args.get('code')
+    if not code:
+        return redirect(url_for('auth.login'))
+    try:
+        redirect_uri = _get_google_redirect_uri()
+        tok = http.post('https://oauth2.googleapis.com/token', data=dict(
+            code=code,
+            client_id=cfg['GOOGLE_CLIENT_ID'],
+            client_secret=cfg['GOOGLE_CLIENT_SECRET'],
+            redirect_uri=redirect_uri,
+            grant_type='authorization_code'
+        ), timeout=15).json()
+        token = tok.get('access_token')
+        if not token:
+            print('Google token error:', tok)
+            return redirect(url_for('auth.login', error='ไม่สามารถดึง Token จาก Google ได้'))
+
+        info = http.get('https://www.googleapis.com/oauth2/v2/userinfo',
+                        headers={'Authorization': f'Bearer {token}'}, timeout=15).json()
+        email = info.get('email')
+        name  = info.get('name') or (email.split('@')[0] if email else 'Google User')
+        if email:
+            user = _get_or_create_user(name, email=email)
+            login_user(user)
+            return redirect(url_for('places.home'))
+    except Exception as e:
+        print('Google OAuth Exception:', e)
+
+    return redirect(url_for('auth.login', error='เกิดข้อผิดพลาดในการเชื่อมต่อกับ Google'))
 
 
-# ── Facebook OAuth (1-Click Instant Login เพื่อป้องกันปัญหา App Not Live ของ Meta) ──
+# ── Real Facebook OAuth (เด้งหน้าล็อกอิน Facebook จริงของแต่ละคน) ──
 @auth.route('/facebook')
 def facebook_login():
-    user = _get_or_create_user('Facebook_User', email='facebook.user@fb.com')
-    login_user(user)
-    return redirect(url_for('places.home'))
+    cfg = current_app.config
+    app_id = cfg.get('FB_APP_ID')
+    if not app_id or str(app_id).strip() == '' or str(app_id).lower() == 'none':
+        return redirect(url_for('auth.login', error='ยังไม่ได้ตั้งค่า FB_APP_ID ในระบบ'))
+
+    state = secrets.token_urlsafe(16)
+    session['oauth_state'] = state
+    redirect_uri = _get_facebook_redirect_uri()
+    params = dict(
+        client_id=app_id,
+        redirect_uri=redirect_uri,
+        state=state,
+        scope='email,public_profile'
+    )
+    return redirect('https://www.facebook.com/v18.0/dialog/oauth?' + urlencode(params))
 
 @auth.route('/facebook/callback')
 def facebook_callback():
-    user = _get_or_create_user('Facebook_User', email='facebook.user@fb.com')
-    login_user(user)
-    return redirect(url_for('places.home'))
+    cfg  = current_app.config
+    code = request.args.get('code')
+    if not code:
+        return redirect(url_for('auth.login'))
+    try:
+        redirect_uri = _get_facebook_redirect_uri()
+        tok = http.get('https://graph.facebook.com/v18.0/oauth/access_token', params=dict(
+            client_id=cfg['FB_APP_ID'],
+            client_secret=cfg['FB_APP_SECRET'],
+            redirect_uri=redirect_uri,
+            code=code
+        ), timeout=15).json()
+        token = tok.get('access_token')
+        if not token:
+            print('Facebook token error:', tok)
+            return redirect(url_for('auth.login', error='ไม่สามารถดึง Token จาก Facebook ได้'))
+
+        info = http.get('https://graph.facebook.com/me',
+                        params=dict(fields='id,name,email', access_token=token), timeout=15).json()
+        name  = info.get('name', 'Facebook User')
+        email = info.get('email')
+        user  = _get_or_create_user(name, email=email)
+        login_user(user)
+        return redirect(url_for('places.home'))
+    except Exception as e:
+        print('Facebook OAuth Exception:', e)
+
+    return redirect(url_for('auth.login', error='เกิดข้อผิดพลาดในการเชื่อมต่อกับ Facebook'))
