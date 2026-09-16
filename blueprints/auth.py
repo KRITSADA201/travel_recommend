@@ -185,7 +185,8 @@ def google_login():
     session['google_redirect_uri'] = redirect_uri   # เก็บไว้ใช้ใน callback
     params = dict(client_id=cfg['GOOGLE_CLIENT_ID'],
                   redirect_uri=redirect_uri,
-                  response_type='code', scope='openid email profile', state=state)
+                  response_type='code', scope='openid email profile', state=state,
+                  prompt='select_account')
     return redirect('https://accounts.google.com/o/oauth2/v2/auth?' + urlencode(params))
 
 @auth.route('/google/callback')
