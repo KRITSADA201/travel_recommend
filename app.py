@@ -2,11 +2,15 @@ from flask import Flask
 from config import Config
 from extensions import db, bcrypt, login_manager
 from models import User
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    # รองรับ Reverse Proxy บน Render (HTTPS & Headers)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
     # init extensions
     db.init_app(app)
