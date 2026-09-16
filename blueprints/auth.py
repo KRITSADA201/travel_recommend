@@ -56,12 +56,14 @@ def _send_reset_email(user, reset_url):
 
 
 def _get_or_create_user(username, email=None):
-    user = User.query.filter_by(email=email).first() if email else None
+    user = User.query.filter(User.email.ilike(email)).first() if email else None
+    if not user and username:
+        user = User.query.filter(User.username.ilike(username)).first()
     if not user:
-        base = username.replace(' ', '_')
+        base = username.replace(' ', '_') if username else 'user'
         uname = base
         i = 1
-        while User.query.filter_by(username=uname).first():
+        while User.query.filter(User.username.ilike(uname)).first():
             uname = f"{base}_{i}"; i += 1
         pw = bcrypt.generate_password_hash(secrets.token_hex(16)).decode()
         user = User(username=uname, email=email, password=pw)
@@ -226,7 +228,8 @@ def facebook_login():
     session['fb_redirect_uri'] = redirect_uri       # เก็บไว้ใช้ใน callback
     params = dict(client_id=cfg['FB_APP_ID'],
                   redirect_uri=redirect_uri,
-                  state=state, scope='email,public_profile')
+                  state=state, scope='email,public_profile',
+                  auth_type='rerequest')
     return redirect('https://www.facebook.com/v18.0/dialog/oauth?' + urlencode(params))
 
 @auth.route('/facebook/callback')
@@ -236,7 +239,8 @@ def facebook_callback():
     if not code: return redirect(url_for('auth.login'))
     redirect_uri = session.get('fb_redirect_uri') or _build_redirect_uri('facebook')
     try:
-        tok = http.get('https://graph.facebook.com/v18.0/oauth/access_token', params=dict(
+        # ใช้ POST เพื่อป้องกันการ retry / double request จาก proxy
+        tok = http.post('https://graph.facebook.com/v18.0/oauth/access_token', data=dict(
             client_id=cfg.get('FB_APP_ID'), client_secret=cfg.get('FB_APP_SECRET'),
             redirect_uri=redirect_uri, code=code), timeout=10).json()
         token = tok.get('access_token')
@@ -245,7 +249,9 @@ def facebook_callback():
             return render_template('auth/login.html', error=f'Facebook Login ผิดพลาด: {err_msg}')
         info  = http.get('https://graph.facebook.com/me',
                          params=dict(fields='id,name,email', access_token=token), timeout=10).json()
-        login_user(_get_or_create_user(info.get('name', 'FB_User'), email=info.get('email')))
+        name  = info.get('name') or 'FB_User'
+        email = info.get('email')
+        login_user(_get_or_create_user(name, email=email))
         return redirect(url_for('places.home'))
     except Exception as e:
         return render_template('auth/login.html', error=f'เกิดข้อผิดพลาดในการเชื่อมต่อ Facebook: {str(e)}')
