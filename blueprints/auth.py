@@ -5,7 +5,7 @@ import requests as http
 from urllib.parse import urlencode
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from flask import Blueprint, render_template, redirect, url_for, request, session, current_app
-from flask_login import login_user, logout_user, login_required
+from flask_login import login_user, logout_user, login_required, current_user
 from extensions import db, bcrypt
 from models import User
 
@@ -56,11 +56,13 @@ def _send_reset_email(user, reset_url):
 
 
 def _get_or_create_user(username, email=None):
+    email = email.strip() if (email and isinstance(email, str) and email.strip()) else None
+    username = username.strip() if (username and isinstance(username, str) and username.strip()) else 'user'
     user = User.query.filter(User.email.ilike(email)).first() if email else None
     if not user and username:
         user = User.query.filter(User.username.ilike(username)).first()
     if not user:
-        base = username.replace(' ', '_') if username else 'user'
+        base = username.replace(' ', '_')
         uname = base
         i = 1
         while User.query.filter(User.username.ilike(uname)).first():
@@ -76,12 +78,12 @@ def _get_or_create_user(username, email=None):
 def register():
     error = None
     if request.method == 'POST':
-        username = request.form['username']
+        username = request.form['username'].strip()
         email    = request.form.get('email',  '').strip() or None
         phone    = request.form.get('phone',  '').strip() or None
-        if User.query.filter_by(username=username).first():
+        if User.query.filter(User.username.ilike(username)).first():
             error = 'ชื่อผู้ใช้นี้มีแล้ว'
-        elif email and User.query.filter_by(email=email).first():
+        elif email and User.query.filter(User.email.ilike(email)).first():
             error = 'อีเมลนี้ถูกใช้แล้ว'
         elif phone and User.query.filter_by(phone=phone).first():
             error = 'เบอร์โทรนี้ถูกใช้แล้ว'
@@ -168,12 +170,6 @@ def reset_password(token):
 
     return render_template('auth/reset_password.html', invalid=False, error=error, token=token)
 
-def _build_redirect_uri(endpoint):
-    """สร้าง redirect URI ที่ถูกต้องสำหรับทั้ง localhost และ Render (HTTPS)"""
-    proto = request.headers.get('X-Forwarded-Proto', request.scheme or 'http')
-    host  = request.host
-    return f"{proto}://{host}/auth/{endpoint}/callback"
-
 
 # ── Google ──
 @auth.route('/google')
@@ -183,8 +179,7 @@ def google_login():
         return render_template('auth/login.html', error='ยังไม่ได้ตั้งค่า GOOGLE_CLIENT_ID หรือ GOOGLE_CLIENT_SECRET บนเซิร์ฟเวอร์ Render (ไปที่ Environment tab)')
     state = secrets.token_urlsafe(16)
     session['oauth_state'] = state
-    redirect_uri = _build_redirect_uri('google')
-    session['google_redirect_uri'] = redirect_uri   # เก็บไว้ใช้ใน callback
+    redirect_uri = url_for('auth.google_callback', _external=True)
     params = dict(client_id=cfg['GOOGLE_CLIENT_ID'],
                   redirect_uri=redirect_uri,
                   response_type='code', scope='openid email profile', state=state,
@@ -193,10 +188,12 @@ def google_login():
 
 @auth.route('/google/callback')
 def google_callback():
+    if current_user.is_authenticated:
+        return redirect(url_for('places.home'))
     cfg  = current_app.config
     code = request.args.get('code')
     if not code: return redirect(url_for('auth.login'))
-    redirect_uri = session.get('google_redirect_uri') or _build_redirect_uri('google')
+    redirect_uri = url_for('auth.google_callback', _external=True)
     try:
         tok = http.post('https://oauth2.googleapis.com/token', data=dict(
             code=code, client_id=cfg.get('GOOGLE_CLIENT_ID'),
@@ -204,13 +201,14 @@ def google_callback():
             redirect_uri=redirect_uri, grant_type='authorization_code'), timeout=10).json()
         token = tok.get('access_token')
         if not token:
-            err_desc = tok.get('error_description', 'ไม่สามารถรับ Token จาก Google ได้ กรุณาตรวจสอบ Redirect URI')
+            err_desc = tok.get('error_description', 'ไม่สามารถรับ Token จาก Google ได้')
             return render_template('auth/login.html', error=f'Google Login ผิดพลาด: {err_desc}')
         info  = http.get('https://www.googleapis.com/oauth2/v2/userinfo',
                          headers={'Authorization': f'Bearer {token}'}, timeout=10).json()
         email = info.get('email')
         name  = info.get('name') or (email.split('@')[0] if email else 'google_user')
-        login_user(_get_or_create_user(name, email=email))
+        user  = _get_or_create_user(name, email=email)
+        login_user(user, remember=True)
         return redirect(url_for('places.home'))
     except Exception as e:
         return render_template('auth/login.html', error=f'เกิดข้อผิดพลาดในการเชื่อมต่อ Google: {str(e)}')
@@ -224,8 +222,7 @@ def facebook_login():
         return render_template('auth/login.html', error='ยังไม่ได้ตั้งค่า FB_APP_ID หรือ FB_APP_SECRET บนเซิร์ฟเวอร์ Render (ไปที่ Environment tab)')
     state = secrets.token_urlsafe(16)
     session['oauth_state'] = state
-    redirect_uri = _build_redirect_uri('facebook')
-    session['fb_redirect_uri'] = redirect_uri       # เก็บไว้ใช้ใน callback
+    redirect_uri = url_for('auth.facebook_callback', _external=True)
     params = dict(client_id=cfg['FB_APP_ID'],
                   redirect_uri=redirect_uri,
                   state=state, scope='email,public_profile',
@@ -234,24 +231,27 @@ def facebook_login():
 
 @auth.route('/facebook/callback')
 def facebook_callback():
+    if current_user.is_authenticated:
+        return redirect(url_for('places.home'))
     cfg  = current_app.config
     code = request.args.get('code')
     if not code: return redirect(url_for('auth.login'))
-    redirect_uri = session.get('fb_redirect_uri') or _build_redirect_uri('facebook')
+    redirect_uri = url_for('auth.facebook_callback', _external=True)
     try:
-        # ใช้ POST เพื่อป้องกันการ retry / double request จาก proxy
-        tok = http.post('https://graph.facebook.com/v18.0/oauth/access_token', data=dict(
+        # แลกเปลี่ยน Authorization Code เป็น Access Token
+        tok = http.get('https://graph.facebook.com/v18.0/oauth/access_token', params=dict(
             client_id=cfg.get('FB_APP_ID'), client_secret=cfg.get('FB_APP_SECRET'),
             redirect_uri=redirect_uri, code=code), timeout=10).json()
         token = tok.get('access_token')
         if not token:
             err_msg = tok.get('error', {}).get('message', 'ไม่สามารถเชื่อมต่อ Facebook Token ได้')
-            return render_template('auth/login.html', error=f'Facebook Login ผิดพลาด: {err_msg}')
+            return render_template('auth/login.html', error=f'Facebook Login: {err_msg}')
         info  = http.get('https://graph.facebook.com/me',
                          params=dict(fields='id,name,email', access_token=token), timeout=10).json()
         name  = info.get('name') or 'FB_User'
         email = info.get('email')
-        login_user(_get_or_create_user(name, email=email))
+        user  = _get_or_create_user(name, email=email)
+        login_user(user, remember=True)
         return redirect(url_for('places.home'))
     except Exception as e:
         return render_template('auth/login.html', error=f'เกิดข้อผิดพลาดในการเชื่อมต่อ Facebook: {str(e)}')
