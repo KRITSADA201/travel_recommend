@@ -62,33 +62,32 @@ def create_app():
     with app.app_context():
         db.create_all()
 
+        # สร้าง admin อัตโนมัติถ้ายังไม่มีในฐานข้อมูล
+        try:
+            from models import Category
+            if not User.query.filter_by(username='admin').first():
+                admin_user = User(
+                    username='admin',
+                    password=bcrypt.generate_password_hash('admin123').decode(),
+                    is_admin=True
+                )
+                db.session.add(admin_user)
+                db.session.commit()
+                print('✅ admin created  |  username: admin  |  password: admin123')
+
+            # สร้างหมวดหมู่เริ่มต้นถ้ายังไม่มี
+            if Category.query.count() == 0:
+                for name in ['ธรรมชาติ', 'คาเฟ่', 'วัด', 'ที่พัก']:
+                    db.session.add(Category(name=name))
+                db.session.commit()
+                print('✅ categories created')
+        except Exception as e:
+            print(f'Init DB error: {e}')
+
     return app
 
 
 app = create_app()
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-
-        # สร้าง admin อัตโนมัติถ้ายังไม่มี
-        from extensions import bcrypt as bc
-        from models import User, Category
-        if not User.query.filter_by(username='admin').first():
-            admin_user = User(
-                username='admin',
-                password=bc.generate_password_hash('admin123').decode(),
-                is_admin=True
-            )
-            db.session.add(admin_user)
-            db.session.commit()
-            print('✅ admin created  |  username: admin  |  password: admin123')
-
-        # สร้างหมวดหมู่ถ้ายังไม่มี
-        if Category.query.count() == 0:
-            for name in ['ธรรมชาติ', 'คาเฟ่', 'วัด']:
-                db.session.add(Category(name=name))
-            db.session.commit()
-            print('✅ categories created')
-
     app.run(debug=True, host='0.0.0.0', port=5000)
