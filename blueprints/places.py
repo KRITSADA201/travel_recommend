@@ -502,26 +502,20 @@ def proxy_image():
     # แปลง Google Drive URL อัตโนมัติถ้ายังไม่ได้แปลง
     match = re.search(r'/file/d/([a-zA-Z0-9_-]+)', url)
     if match:
-        url = f'https://drive.google.com/uc?export=view&id={match.group(1)}'
+        url = f'https://drive.google.com/thumbnail?id={match.group(1)}&sz=w1600'
+    else:
+        match2 = re.search(r'[?&]id=([a-zA-Z0-9_-]+)', url)
+        if 'drive.google.com' in url and match2:
+            url = f'https://drive.google.com/thumbnail?id={match2.group(1)}&sz=w1600'
 
     try:
         resp = http.get(url, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Referer': 'https://drive.google.com/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
         }, timeout=15, allow_redirects=True)
         content_type = resp.headers.get('Content-Type', 'image/jpeg')
-        # ถ้า Google Drive redirect ไปหน้า confirm ให้ดึง confirm link
-        if 'text/html' in content_type and 'drive.google.com' in url:
-            confirm = re.search(r'href="(/uc[?]export=download[^"]+)"', resp.text)
-            if confirm:
-                confirm_url = 'https://drive.google.com' + confirm.group(1).replace('&amp;', '&')
-                resp = http.get(confirm_url, headers={
-                    'User-Agent': 'Mozilla/5.0',
-                    'Referer': 'https://drive.google.com/',
-                }, timeout=15)
-                content_type = resp.headers.get('Content-Type', 'image/jpeg')
         return Response(resp.content, content_type=content_type,
-                       headers={'Cache-Control': 'public, max-age=3600'})
+                       headers={'Cache-Control': 'public, max-age=86400'})
     except Exception:
         return '', 404
 

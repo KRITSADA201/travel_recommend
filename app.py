@@ -40,21 +40,19 @@ def create_app():
         import re
         from urllib.parse import quote
 
-        # แปลง Google Drive URL อัตโนมัติ
-        # รูปแบบ: /file/d/ID/view หรือ /file/d/ID
+        # แปลง Google Drive URL อัตโนมัติเป็น Direct High-Res Image
         match = re.search(r'/file/d/([a-zA-Z0-9_-]+)', url)
         if match:
             file_id = match.group(1)
-            url = f'https://drive.google.com/uc?export=view&id={file_id}'
+            return f'https://drive.google.com/thumbnail?id={file_id}&sz=w1600'
 
-        # รูปแบบ: /open?id=ID
         match2 = re.search(r'[?&]id=([a-zA-Z0-9_-]+)', url)
-        if 'drive.google.com/open' in url and match2:
+        if 'drive.google.com' in url and match2:
             file_id = match2.group(1)
-            url = f'https://drive.google.com/uc?export=view&id={file_id}'
+            return f'https://drive.google.com/thumbnail?id={file_id}&sz=w1600'
 
-        # ส่งผ่าน proxy ถ้าเป็น Google Drive หรือ OneDrive
-        if 'drive.google.com' in url or '1drv.ms' in url or 'onedrive' in url:
+        # ส่งผ่าน proxy ถ้าเป็น OneDrive
+        if '1drv.ms' in url or 'onedrive' in url:
             return f'/proxy-image?url={quote(url)}'
 
         return url

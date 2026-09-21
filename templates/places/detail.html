@@ -150,13 +150,14 @@
                 <div class="carousel-inner">
                     {% for img in place.images %}
                     <div class="carousel-item {{ 'active' if loop.first }}">
-                        <div class="gallery-slide-frame">
+                        <div class="gallery-slide-frame position-relative">
                             <img src="{{ img.url|proxy_url }}"
+                                 alt="{{ place.name }}"
                                  style="max-width:100%;max-height:100%;object-fit:contain;display:block;"
-                                 onerror="this.parentNode.parentNode.parentNode.style.display='none'">
+                                 onerror="this.onerror=null; this.src='https://placehold.co/800x480/1e293b/94a3b8?text=รูปภาพไม่สามารถโหลดได้';">
                         </div>
                         {% if img.caption %}
-                        <div class="carousel-caption d-block" style="background:rgba(0,0,0,.4);border-radius:6px;bottom:10px;padding:4px 10px;">
+                        <div class="carousel-caption d-block" style="background:rgba(0,0,0,.5);border-radius:6px;bottom:10px;padding:4px 10px;">
                             <small>{{ img.caption }}</small>
                         </div>
                         {% endif %}

@@ -174,25 +174,56 @@ async function searchOnMap() {
     const btn = document.querySelector('button[onclick="searchOnMap()"]');
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>ค้นหา...'; }
 
-    const queries = [
-        rawQ,
-        rawQ + ' อุบลราชธานี',
-        rawQ + ' Thailand',
-        rawQ.replace(/ศูนย์บริการ|จุดผ่านแดนถาวร|จุดผ่านแดน|ด่านพรมแดน|ด่านตรวจ/g, '').trim(),
-        rawQ.split(' ')[0],
-        rawQ.split(' ').slice(-1)[0]
-    ].filter(q => q && q.length >= 2);
+    // สร้างรูปแบบคำค้นหาอัจฉริยะ ล็อกพิกัดจังหวัดอุบลราชธานี
+    const queries = [];
+    if (!rawQ.includes('อุบล')) {
+        queries.push(rawQ + ' อุบลราชธานี');
+    }
+    queries.push(rawQ);
 
-    const uniqueQueries = [...new Set(queries)];
+    // ตัดคำนำหน้าประเภทสถานที่ (เช่น โรงแรม, รีสอร์ท, วัด, คาเฟ่) เผื่อในฐานข้อมูลบันทึกเฉพาะชื่อเฉพาะ
+    const stripped = rawQ.replace(/^(โรงแรม|รีสอร์ท|โฮเทล|วัด|คาเฟ่|ร้านอาหาร|ร้าน|อุทยานแห่งชาติ|วนอุทยาน|หาด)/, '').trim();
+    if (stripped && stripped !== rawQ) {
+        if (!stripped.includes('อุบล')) {
+            queries.push(stripped + ' อุบลราชธานี');
+        }
+        queries.push(stripped);
+    }
+
+    // จัดการคำที่มักพิมพ์ติดกัน เช่น สุนีย์แกรนด์ -> สุนีย์ แกรนด์
+    const spaced = rawQ.replace(/(แกรนด์|โฮเทล|รีสอร์ท|วิลล่า|ปาร์ค|การ์เด้น)/g, ' $1').trim();
+    if (spaced !== rawQ) {
+        queries.push(spaced + ' อุบลราชธานี');
+        const spacedNoPrefix = spaced.replace(/^(โรงแรม|รีสอร์ท|โฮเทล|วัด|คาเฟ่|ร้านอาหาร|ร้าน)/, '').trim();
+        if (spacedNoPrefix) {
+            queries.push(spacedNoPrefix + ' อุบลราชธานี');
+            queries.push(spacedNoPrefix);
+        }
+    }
+
+    const uniqueQueries = [...new Set(queries.filter(q => q && q.length >= 2))];
     let found = false;
 
+    // ค้นหาโดยจำกัดขอบเขตพิกัดในจังหวัดอุบลราชธานี (viewbox: 104.4,16.2,105.8,14.1)
     for (const q of uniqueQueries) {
         try {
-            const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&accept-language=th,en`);
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&countrycodes=th&viewbox=104.4,16.2,105.8,14.1&accept-language=th,en`;
+            const resp = await fetch(url);
             const data = await resp.json();
             if (data && data.length > 0) {
-                const lat = parseFloat(data[0].lat).toFixed(6);
-                const lng = parseFloat(data[0].lon).toFixed(6);
+                // กรองเลือกผลลัพธ์ที่อยู่ในเขตอุบลราชธานีก่อนเป็นอันดับแรก
+                let best = data.find(item => {
+                    const lat = parseFloat(item.lat);
+                    const lon = parseFloat(item.lon);
+                    return lat >= 14.1 && lat <= 16.3 && lon >= 104.4 && lon <= 105.8;
+                });
+
+                if (!best) {
+                    best = data[0];
+                }
+
+                const lat = parseFloat(best.lat).toFixed(6);
+                const lng = parseFloat(best.lon).toFixed(6);
                 document.getElementById('lat-input').value = lat;
                 document.getElementById('lng-input').value = lng;
                 updateGoogleMap(lat, lng);
@@ -207,8 +238,13 @@ async function searchOnMap() {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-search me-1"></i>ค้นหาพิกัด'; }
 
     if (!found) {
-        const gmapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rawQ)}`;
-        if (confirm(`ไม่พบพิกัดอัตโนมัติสำหรับ "${rawQ}"\n\nต้องการเปิด Google Maps เพื่อดูและคัดลอกพิกัดมาใส่หรือไม่?`)) {
+        const fallbackQ = rawQ.includes('อุบล') ? rawQ : (rawQ + ' อุบลราชธานี');
+        const iframe = document.getElementById('add-gmap-iframe');
+        if (iframe) {
+            iframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(fallbackQ)}&hl=th&z=15&output=embed`;
+        }
+        const gmapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallbackQ)}`;
+        if (confirm(`ไม่พบพิกัดตัวเลขใน OpenStreetMap สำหรับ "${rawQ}"\n\nแต่ระบบได้อัปเดตแผนที่ Google Maps ในกรอบด้านล่างให้แล้ว!\n\nต้องการเปิด Google Maps หน้าต่างใหม่เพื่อคัดลอกพิกัดละติจูด/ลองจิจูดหรือไม่?`)) {
             window.open(gmapUrl, '_blank');
         }
     }
