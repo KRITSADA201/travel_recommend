@@ -63,12 +63,33 @@ def list_places():
     q = request.args.get('q', '').strip()
     cat = request.args.get('cat', type=int)
 
-    query = Place.query
+    from sqlalchemy import or_
+    query = Place.query.outerjoin(Category, Place.category_id == Category.id)
     if q:
-        query = query.join(Category, Place.category_id == Category.id).filter(
-            Place.name.ilike(f'%{q}%') |
+        conditions = [
+            Place.name.ilike(f'%{q}%'),
+            Place.detail.ilike(f'%{q}%'),
+            Place.location.ilike(f'%{q}%'),
             Category.name.ilike(f'%{q}%')
-        )
+        ]
+
+        # แยกคำค้นหาตัดคำนำหน้า เช่น "วัดภูพร้าว" -> ค้น "ภูพร้าว" ในชื่อและรายละเอียดด้วย
+        prefixes = ['วัด', 'โรงแรม', 'รีสอร์ท', 'คาเฟ่', 'ร้านอาหาร', 'ร้าน', 'หาด', 'น้ำตก', 'แก่ง', 'เขื่อน', 'อุทยาน']
+        for pfix in prefixes:
+            if q.startswith(pfix) and len(q) > len(pfix):
+                subword = q[len(pfix):].strip()
+                if subword:
+                    conditions.append(Place.name.ilike(f'%{subword}%'))
+                    conditions.append(Place.detail.ilike(f'%{subword}%'))
+                break
+
+        # รองรับกรณีพิมพ์เว้นวรรค
+        terms = [t for t in q.split() if t]
+        if len(terms) > 1:
+            for term in terms:
+                conditions.append(Place.name.ilike(f'%{term}%'))
+
+        query = query.filter(or_(*conditions))
     if cat:
         query = query.filter(Place.category_id == cat)
 
